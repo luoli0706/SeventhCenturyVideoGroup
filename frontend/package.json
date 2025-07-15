@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@arco-design/web-vue": "^2.57.0",
     "axios": "^1.10.0",
     "element-plus": "^2.10.4",
     "pinia": "^3.0.3",
