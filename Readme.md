@@ -1,6 +1,6 @@
 # SeventhCenturyVideoGroup Monorepo
 
-柒世纪视频组社团管理系统 —— 前后端一体化项目  
+柒世纪视频组社团管理系统 —— 前后端分离项目  
 SeventhCenturyVideoGroup Club Management System — Fullstack Monorepo
 
 ---
