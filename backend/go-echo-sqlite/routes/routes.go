@@ -12,4 +12,7 @@ func InitRoutes(e *echo.Echo) {
 	api.GET("/club_members", controllers.GetClubMembers)
 	api.POST("/club_members", controllers.CreateClubMember)
 	api.DELETE("/club_members/:id", controllers.DeleteClubMember)
+
+	api.GET("/activities", controllers.GetActivities)
+	api.POST("/activities", controllers.CreateActivity)
 }
