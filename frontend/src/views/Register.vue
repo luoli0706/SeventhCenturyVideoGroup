@@ -25,6 +25,12 @@
             <a-option value="三维">三维</a-option>
           </a-select>
         </a-form-item>
+        <a-form-item label="在役状态" required>
+          <a-select v-model="form.status" placeholder="请选择在役状态">
+            <a-option value="仍然在役">仍然在役</a-option>
+            <a-option value="已退居幕后">已退居幕后</a-option>
+          </a-select>
+        </a-form-item>
         <a-form-item label="备注">
           <a-input v-model="form.remark" placeholder="选填" />
         </a-form-item>
@@ -40,6 +46,7 @@
 <script setup>
 import { reactive } from 'vue'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
 
 const router = useRouter()
 const form = reactive({
@@ -48,6 +55,7 @@ const form = reactive({
   position: '',
   year: '',
   direction: '',
+  status: '', // 新增字段
   remark: ''
 })
 
@@ -55,9 +63,21 @@ function goBack() {
   router.push('/members')
 }
 
-function handleSubmit() {
-  // 处理提交逻辑，暂为空
-  router.push('/members')
+async function handleSubmit() {
+  try {
+    await axios.post('http://localhost:7777/api/club_members', {
+      CN: form.cn,
+      Sex: form.gender,
+      Position: form.position,
+      Year: form.year,
+      Direction: form.direction,
+      Status: form.status, // 新增字段
+      Remark: form.remark
+    })
+    router.push('/members')
+  } catch (e) {
+    alert('提交失败')
+  }
 }
 </script>
 
