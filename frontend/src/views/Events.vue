@@ -88,7 +88,7 @@ function formatDate(dateStr) {
 
 onMounted(async () => {
   try {
-    const res = await axios.get('http://localhost:7777/api/activities')
+    const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/activities`)
     events.value = res.data
   } catch (e) {
     events.value = []

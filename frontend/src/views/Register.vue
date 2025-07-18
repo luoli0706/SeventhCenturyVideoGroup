@@ -65,13 +65,13 @@ function goBack() {
 
 async function handleSubmit() {
   try {
-    await axios.post('http://localhost:7777/api/club_members', {
+    await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/club_members`, {
       CN: form.cn,
       Sex: form.gender,
       Position: form.position,
       Year: form.year,
       Direction: form.direction,
-      Status: form.status, // 新增字段
+      Status: form.status,
       Remark: form.remark
     })
     router.push('/members')

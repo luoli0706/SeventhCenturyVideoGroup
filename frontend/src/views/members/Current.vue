@@ -36,7 +36,7 @@ function goBack() {
 
 onMounted(async () => {
   try {
-    const res = await axios.get('http://localhost:7777/api/club_members')
+    const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/club_members`)
     members.value = res.data.filter(m => m.Status === '仍然在役')
   } catch (e) {
     members.value = []

@@ -8,6 +8,7 @@ import (
 )
 
 var DB *gorm.DB
+var DBName = "app.db" // 只在这里定义
 
 func InitDB() {
 	var err error

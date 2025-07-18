@@ -48,7 +48,7 @@ function goBack() {
 
 async function handleSubmit() {
   try {
-    await axios.post('http://localhost:7777/api/activities', form)
+    await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/activities`, form)
     router.push('/events')
   } catch (e) {
     alert('提交失败')
