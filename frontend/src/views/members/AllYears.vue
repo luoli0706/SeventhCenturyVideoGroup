@@ -4,7 +4,9 @@
       <a-scrollbar class="member-scrollbar">
         <div class="member-list">
           <div v-for="member in members" :key="member.ID" class="member-block">
-            <div class="member-name">{{ member.CN }}</div>
+            <router-link :to="`/member/${encodeURIComponent(member.CN)}`" class="member-name-link">
+              <div class="member-name">{{ member.CN }}</div>
+            </router-link>
             <div class="member-info">
               <span>性别：{{ member.Sex }}</span>
               <span>职务：{{ member.Position }}</span>
@@ -96,5 +98,13 @@ onMounted(async () => {
   margin-top: 4px;
   color: #666;
   font-size: 0.95em;
+}
+.member-name-link {
+  text-decoration: none;
+  color: inherit;
+}
+.member-name-link:hover .member-name {
+  color: #165dff;
+  cursor: pointer;
 }
 </style>

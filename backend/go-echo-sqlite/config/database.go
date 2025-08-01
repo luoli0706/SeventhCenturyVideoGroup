@@ -18,5 +18,5 @@ func InitDB() {
 	}
 
 	// 自动迁移模型
-	DB.AutoMigrate(&models.ClubMember{}, &models.Activity{})
+	DB.AutoMigrate(&models.ClubMember{}, &models.Activity{}, &models.MemberProfile{})
 }

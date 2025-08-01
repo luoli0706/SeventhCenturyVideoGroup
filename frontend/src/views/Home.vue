@@ -2,12 +2,33 @@
   <div :class="['bg-wrapper', isDark ? 'bg-dark' : 'bg-light']">
     <div class="side-img left"></div>
     <div class="home-bg">
-      <ThemeSwitcher />
-      <Title />
-      <SearchBox />
-      <HomeMenu :is-dark="isDark" />
+      <div class="content-wrapper">
+        <div class="department-links">
+          <a-space direction="horizontal" size="large">
+            <router-link to="/animation">
+              <a-button type="outline" size="small">动画系</a-button>
+            </router-link>
+            <router-link to="/static">
+              <a-button type="outline" size="small">静止系</a-button>
+            </router-link>
+            <router-link to="/3d">
+              <a-button type="outline" size="small">三维</a-button>
+            </router-link>
+          </a-space>
+        </div>
+        <a-divider style="margin: 16px 0; width: 280px;" />
+        <ThemeSwitcher />
+        <Title />
+        <SearchBox />
+        <HomeMenu :is-dark="isDark" />
+      </div>
     </div>
     <div class="side-img right"></div>
+    <div class="icp-footer">
+      <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">
+        闽ICP备2025101374号
+      </a>
+    </div>
   </div>
 </template>
 
@@ -39,6 +60,7 @@ onMounted(() => {
   width: 100vw;
   overflow: hidden;
   transition: background 0.3s;
+  position: relative;
 }
 .bg-light {
   background: #fff;
@@ -56,9 +78,11 @@ onMounted(() => {
   min-height: 100vh;
 }
 .side-img.left {
+  background-position: center right;
 }
 .side-img.right {
   transform: scaleX(-1);
+  background-position: center left;
 }
 .home-bg {
   flex: 2 1 600px;
@@ -67,8 +91,40 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   min-height: 100vh;
   z-index: 1;
+  padding-top: 15vh;
+}
+.content-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.department-links {
+  margin-bottom: 8px;
+}
+.department-links .arco-btn {
+  font-size: 0.9em;
+  padding: 6px 16px;
+}
+.icp-footer {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 100vw;
+  text-align: center;
+  padding: 8px 0;
+  background: rgba(255,255,255,0.7);
+  font-size: 0.95em;
+  z-index: 99;
+}
+.icp-footer a {
+  color: #165dff;
+  text-decoration: none;
+}
+.icp-footer a:hover {
+  text-decoration: underline;
 }
 </style>

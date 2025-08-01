@@ -15,4 +15,11 @@ func InitRoutes(e *echo.Echo) {
 
 	api.GET("/activities", controllers.GetActivities)
 	api.POST("/activities", controllers.CreateActivity)
+
+	// 个人主页相关路由
+	api.GET("/member-profile/:cn", controllers.GetMemberProfile)
+	api.POST("/member-profile/:cn", controllers.CreateOrUpdateMemberProfile)
+	api.PUT("/member-profile/:cn", controllers.CreateOrUpdateMemberProfile)
+	api.DELETE("/member-profile/:cn", controllers.DeleteMemberProfile)
+	api.GET("/member-profile/:cn/exists", controllers.CheckMemberProfileExists)
 }
