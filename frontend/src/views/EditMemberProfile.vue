@@ -9,6 +9,7 @@
             accept="image/*"
             list-type="picture-card"
             :auto-upload="false"
+            @change="handleFileChange"
           >
             <div v-if="avatarFileList.length === 0">
               <div>上传头像</div>
@@ -70,6 +71,10 @@ const router = useRouter()
 const route = useRoute()
 const memberName = ref('')
 const avatarFileList = ref([])
+const currentAvatarFile = ref(null) // 新增：存储当前选中的文件
+
+// 定义API基础URL
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
 
 const form = reactive({
   biliUID: '',
@@ -78,24 +83,50 @@ const form = reactive({
   other: ''
 })
 
+function handleFileChange(fileList) {
+  console.log('文件列表变化:', fileList)
+  if (fileList.length > 0) {
+    const fileItem = fileList[0]
+    // 尝试获取原始文件对象
+    currentAvatarFile.value = fileItem.file || fileItem.originFile || fileItem.raw || null
+    console.log('存储的文件对象:', currentAvatarFile.value)
+  } else {
+    currentAvatarFile.value = null
+  }
+}
+
 function goBack() {
   router.back()
 }
 
 async function handleSubmit() {
   try {
-    const profileData = {
-      CN: memberName.value,
-      Avatar: avatarFileList.value[0] ? avatarFileList.value[0].name : '', // 简化处理，实际应上传文件
-      BiliUID: form.biliUID,
-      Signature: form.signature,
-      RepresentativeWork: form.representativeWork,
-      Other: form.other
+    // 创建FormData对象来支持文件上传
+    const formData = new FormData()
+    
+    // 添加文本字段
+    formData.append('biliUID', form.biliUID)
+    formData.append('signature', form.signature)
+    formData.append('representativeWork', form.representativeWork)
+    formData.append('other', form.other)
+    
+    // 添加头像文件（如果有）
+    console.log('当前文件对象:', currentAvatarFile.value)
+    if (currentAvatarFile.value) {
+      formData.append('avatar', currentAvatarFile.value)
+      console.log('已添加文件到FormData')
+    } else {
+      console.log('没有文件需要上传')
     }
     
     const res = await axios.post(
-      `${import.meta.env.VITE_API_BASE_URL}/api/member-profile/${encodeURIComponent(memberName.value)}`,
-      profileData
+      `${apiBaseUrl}/api/member-profile/${encodeURIComponent(memberName.value)}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      }
     )
     
     if (res.status === 200 || res.status === 201) {
@@ -111,13 +142,14 @@ async function handleSubmit() {
 
 onMounted(() => {
   memberName.value = decodeURIComponent(route.params.name)
+  currentAvatarFile.value = null // 清除文件引用
   loadExistingProfile()
 })
 
 // 加载已有的个人主页数据
 async function loadExistingProfile() {
   try {
-    const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/member-profile/${encodeURIComponent(memberName.value)}`)
+    const res = await axios.get(`${apiBaseUrl}/api/member-profile/${encodeURIComponent(memberName.value)}`)
     const data = res.data
     
     form.biliUID = data.BiliUID || ''
@@ -125,9 +157,14 @@ async function loadExistingProfile() {
     form.representativeWork = data.RepresentativeWork || ''
     form.other = data.Other || ''
     
-    // 如果有头像，显示现有头像（简化处理）
+    // 如果有头像，显示现有头像
     if (data.Avatar) {
-      // 这里可以根据需要处理现有头像的显示
+      avatarFileList.value = [{
+        uid: '-1',
+        name: '当前头像',
+        status: 'done',
+        url: `${apiBaseUrl}/${data.Avatar}`
+      }]
     }
   } catch (e) {
     // 如果没有找到个人主页数据，保持表单为空

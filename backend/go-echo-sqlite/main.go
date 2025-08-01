@@ -22,6 +22,9 @@ func main() {
 	// 初始化数据库
 	config.InitDB()
 
+	// 静态文件服务 - 提供头像图片访问
+	e.Static("/pics", "pics")
+
 	// 注册路由
 	routes.InitRoutes(e)
 

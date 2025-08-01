@@ -23,7 +23,7 @@
       <div v-else class="profile-content">
         <div class="profile-item" v-if="profileData.Avatar">
           <strong>头像：</strong>
-          <img :src="profileData.Avatar" alt="头像" class="avatar-img" />
+          <img :src="`${apiBaseUrl}/${profileData.Avatar}`" alt="头像" class="avatar-img" />
         </div>
         <div class="profile-item" v-if="profileData.BiliUID">
           <strong>B站UID：</strong>{{ profileData.BiliUID }}
@@ -61,6 +61,9 @@ const memberInfo = ref({})
 const profileExists = ref(false)
 const profileData = ref({})
 
+// 定义API基础URL
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
+
 function goBack() {
   router.back()
 }
@@ -68,7 +71,7 @@ function goBack() {
 // 检查个人主页是否存在
 async function checkProfileExists() {
   try {
-    const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/member-profile/${encodeURIComponent(memberName.value)}/exists`)
+    const res = await axios.get(`${apiBaseUrl}/api/member-profile/${encodeURIComponent(memberName.value)}/exists`)
     return res.data.exists
   } catch (e) {
     return false
@@ -78,7 +81,7 @@ async function checkProfileExists() {
 // 获取个人主页数据
 async function getProfileData() {
   try {
-    const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/member-profile/${encodeURIComponent(memberName.value)}`)
+    const res = await axios.get(`${apiBaseUrl}/api/member-profile/${encodeURIComponent(memberName.value)}`)
     return res.data
   } catch (e) {
     return null
@@ -90,7 +93,7 @@ onMounted(async () => {
   
   // 获取成员基本信息
   try {
-    const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/club_members`)
+    const res = await axios.get(`${apiBaseUrl}/api/club_members`)
     const member = res.data.find(m => m.CN === memberName.value)
     if (member) {
       memberInfo.value = member
