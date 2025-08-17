@@ -1,0 +1,282 @@
+<template>
+  <div class="change-password-page">
+    <div class="theme-toggle">
+      <ThemeSwitcherIcon />
+    </div>
+    
+    <div class="change-container">
+      <div class="form-header">
+        <h2>修改密码</h2>
+        <p>请输入您的账号信息和新密码</p>
+      </div>
+      
+      <a-form :model="form" layout="vertical" @submit="handleChangePassword">
+        <a-form-item label="成员姓名(CN)" required>
+          <a-input 
+            v-model="form.cn" 
+            placeholder="请输入您的成员姓名" 
+            size="large"
+          />
+        </a-form-item>
+        
+        <a-form-item label="当前密码" required>
+          <a-input-password 
+            v-model="form.oldPassword" 
+            placeholder="请输入当前密码" 
+            size="large"
+          />
+        </a-form-item>
+        
+        <a-form-item label="新密码" required>
+          <a-input-password 
+            v-model="form.newPassword" 
+            placeholder="请输入新密码" 
+            size="large"
+          />
+        </a-form-item>
+        
+        <a-form-item label="确认新密码" required>
+          <a-input-password 
+            v-model="form.confirmPassword" 
+            placeholder="请再次输入新密码" 
+            size="large"
+          />
+        </a-form-item>
+        
+        <a-form-item>
+          <a-button 
+            type="primary" 
+            size="large" 
+            :loading="loading"
+            @click="handleChangePassword"
+            style="width: 100%;"
+          >
+            修改密码
+          </a-button>
+        </a-form-item>
+      </a-form>
+      
+      <div class="form-footer">
+        <a-button type="text" @click="goBack">返回登录</a-button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import axios from 'axios'
+import ThemeSwitcherIcon from '../components/ThemeSwitcherIcon.vue'
+
+const router = useRouter()
+const loading = ref(false)
+
+const form = reactive({
+  cn: '',
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+})
+
+const handleChangePassword = async () => {
+  if (!form.cn || !form.oldPassword || !form.newPassword || !form.confirmPassword) {
+    alert('请填写所有必填项')
+    return
+  }
+
+  if (form.newPassword !== form.confirmPassword) {
+    alert('新密码和确认密码不一致')
+    return
+  }
+
+  loading.value = true
+  try {
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+    const response = await axios.post(`${apiBaseUrl}/api/change-password`, {
+      cn: form.cn,
+      old_password: form.oldPassword,
+      new_password: form.newPassword
+    })
+    
+    alert('密码修改成功，请使用新密码登录')
+    router.push('/member-login')
+    
+  } catch (error) {
+    const errorMsg = error.response?.data?.error || '密码修改失败，请检查当前密码是否正确'
+    alert(errorMsg)
+  } finally {
+    loading.value = false
+  }
+}
+
+const goBack = () => {
+  router.push('/member-login')
+}
+</script>
+
+<style scoped>
+.change-password-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  position: relative;
+}
+
+.theme-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+}
+
+.change-container {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  padding: 40px;
+  box-shadow: 0 25px 50px rgba(0,0,0,0.15);
+  max-width: 400px;
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.form-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.form-header h2 {
+  font-size: 2em;
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.form-header p {
+  color: #666;
+  font-size: 1em;
+}
+
+.form-footer {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.arco-form-item {
+  margin-bottom: 20px;
+}
+
+.arco-input,
+.arco-input-password {
+  background-color: #f0f3ff !important;
+  border: 2px solid #d1d9e6 !important;
+  border-radius: 12px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.arco-input:focus,
+.arco-input-password:focus {
+  border-color: #1890ff !important;
+  box-shadow: 0 0 0 3px rgba(24,144,255,0.15), 0 4px 12px rgba(24,144,255,0.1) !important;
+  background-color: #ffffff !important;
+  transform: translateY(-1px);
+}
+
+.arco-input:hover,
+.arco-input-password:hover {
+  border-color: #40a9ff !important;
+  background-color: #ffffff !important;
+  box-shadow: 0 3px 8px rgba(64, 169, 255, 0.08);
+}
+
+.arco-button[type="primary"] {
+  background: linear-gradient(135deg, #1890ff 0%, #40a9ff 100%) !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(24,144,255,0.3);
+  transition: all 0.3s ease;
+  border-radius: 12px !important;
+}
+
+.arco-button[type="primary"]:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(24,144,255,0.4) !important;
+}
+
+/* 深色主题样式 */
+[data-theme="dark"] .change-password-page {
+  background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+}
+
+[data-theme="dark"] .change-container {
+  background: rgba(26, 32, 44, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .form-header h2 {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .form-header p {
+  color: #a0aec0;
+}
+
+[data-theme="dark"] .form-footer {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .arco-form-item-label {
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .arco-input,
+[data-theme="dark"] .arco-input-password {
+  background-color: #1e2832 !important;
+  border-color: #3d4852 !important;
+  color: #e2e8f0 !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .arco-input::placeholder,
+[data-theme="dark"] .arco-input-password input::placeholder {
+  color: #8795a1 !important;
+}
+
+[data-theme="dark"] .arco-input:focus,
+[data-theme="dark"] .arco-input-password:focus {
+  border-color: #63b3ed !important;
+  background-color: #2a3441 !important;
+  box-shadow: 0 0 0 3px rgba(99, 179, 237, 0.2), 0 4px 12px rgba(99, 179, 237, 0.15) !important;
+}
+
+[data-theme="dark"] .arco-input:hover,
+[data-theme="dark"] .arco-input-password:hover {
+  border-color: #63b3ed !important;
+  background-color: #2a3441 !important;
+  box-shadow: 0 3px 8px rgba(99, 179, 237, 0.12);
+}
+
+[data-theme="dark"] .arco-button[type="primary"] {
+  background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%) !important;
+  box-shadow: 0 4px 12px rgba(66, 153, 225, 0.3);
+}
+
+[data-theme="dark"] .arco-button[type="primary"]:hover {
+  box-shadow: 0 6px 20px rgba(66, 153, 225, 0.4) !important;
+}
+
+@media (max-width: 480px) {
+  .change-container {
+    padding: 30px 20px;
+    margin: 10px;
+  }
+  
+  .form-header h2 {
+    font-size: 1.5em;
+  }
+}
+</style>

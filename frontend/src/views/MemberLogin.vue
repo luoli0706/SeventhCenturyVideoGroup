@@ -27,14 +27,15 @@
               v-model="form.password" 
               placeholder="请输入密码" 
               size="large"
-              :max-length="50"
             />
           </a-form-item>
           
           <a-form-item>
-            <a-checkbox v-model="form.rememberMe">
-              记住密码
-            </a-checkbox>
+            <div class="checkbox-container">
+              <a-checkbox v-model="form.rememberMe">
+                记住密码
+              </a-checkbox>
+            </div>
           </a-form-item>
           
           <a-form-item>
@@ -48,6 +49,15 @@
               登录
             </a-button>
           </a-form-item>
+          
+          <div class="form-links">
+            <a-button type="text" @click="goToForgotPassword" class="link-button">
+              忘记密码？
+            </a-button>
+            <a-button type="text" @click="goToChangePassword" class="link-button">
+              修改密码
+            </a-button>
+          </div>
         </a-form>
         
         <div class="form-footer">
@@ -144,6 +154,14 @@ const goToRegister = () => {
   router.push('/register')
 }
 
+const goToForgotPassword = () => {
+  router.push('/forgot-password')
+}
+
+const goToChangePassword = () => {
+  router.push('/change-password')
+}
+
 const goBack = () => {
   router.push('/')
 }
@@ -197,6 +215,27 @@ const goBack = () => {
 .form-footer {
   margin-top: 20px;
   text-align: center;
+}
+
+.checkbox-container {
+  margin: 16px 0;
+}
+
+.form-links {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16px;
+  gap: 8px;
+}
+
+.link-button {
+  font-size: 14px !important;
+  color: #1890ff !important;
+  padding: 4px 8px !important;
+}
+
+.link-button:hover {
+  color: #40a9ff !important;
 }
 
 .arco-form-item {
@@ -347,10 +386,23 @@ const goBack = () => {
 
 [data-theme="dark"] .arco-checkbox {
   border-color: #4a5568 !important;
+  background-color: #2d3748 !important;
 }
 
 [data-theme="dark"] .arco-checkbox-checked .arco-checkbox-icon {
   background-color: #3182ce !important;
   border-color: #3182ce !important;
+}
+
+[data-theme="dark"] .checkbox-container .arco-checkbox-label {
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .link-button {
+  color: #63b3ed !important;
+}
+
+[data-theme="dark"] .link-button:hover {
+  color: #90cdf4 !important;
 }
 </style>

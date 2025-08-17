@@ -23,9 +23,8 @@
           <a-form-item label="密码" required>
             <a-input-password 
               v-model="form.password" 
-              placeholder="请设置密码（至少6位）" 
+              placeholder="请设置密码" 
               size="large"
-              :max-length="50"
             />
           </a-form-item>
           
@@ -34,7 +33,6 @@
               v-model="form.confirmPassword" 
               placeholder="请再次输入密码" 
               size="large"
-              :max-length="50"
             />
           </a-form-item>
           
@@ -161,11 +159,6 @@ const handleRegister = async () => {
   
   if (!form.status) {
     alert('请选择在役状态')
-    return
-  }
-  
-  if (form.password.length < 6) {
-    alert('密码长度至少6位')
     return
   }
   

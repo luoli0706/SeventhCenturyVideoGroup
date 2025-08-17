@@ -1,12 +1,11 @@
 <template>
   <div>
     <a-space direction="horizontal" size="large" style="margin-top: 2em;">
-      <router-link to="/members">
-        <a-button
-          :type="isDark ? 'secondary' : 'primary'"
-          :class="isDark ? 'dark-btn' : 'light-btn'"
-        >社团成员名单</a-button>
-      </router-link>
+      <a-button
+        :type="isDark ? 'secondary' : 'primary'"
+        :class="isDark ? 'dark-btn' : 'light-btn'"
+        @click="handleMembersClick"
+      >社团成员名单</a-button>
       <router-link to="/events">
         <a-button
           :type="isDark ? 'secondary' : 'primary'"
@@ -64,9 +63,37 @@ const isMember = ref(false)
 const userType = ref('guest')
 const userInfo = ref(null)
 
+// 社团成员路由访问计数器
+const membersClickCount = ref(0)
+const maxClicksBeforeAdmin = 6 // 用户点击社团成员信息路由3次，退出3次，总共6次操作后弹出管理员登录
+
 onMounted(() => {
   updateUserStatus()
+  // 从localStorage获取点击计数
+  const savedCount = localStorage.getItem('membersClickCount')
+  if (savedCount) {
+    membersClickCount.value = parseInt(savedCount)
+  }
 })
+
+const handleMembersClick = () => {
+  // 增加点击计数
+  membersClickCount.value++
+  localStorage.setItem('membersClickCount', membersClickCount.value.toString())
+  
+  // 检查是否达到触发条件
+  if (membersClickCount.value >= maxClicksBeforeAdmin) {
+    // 重置计数器
+    membersClickCount.value = 0
+    localStorage.setItem('membersClickCount', '0')
+    
+    // 跳转到管理员登录页面
+    router.push('/admin-login')
+  } else {
+    // 正常跳转到社团成员页面
+    router.push('/members')
+  }
+}
 
 const updateUserStatus = () => {
   userType.value = auth.getUserType() || 'guest'

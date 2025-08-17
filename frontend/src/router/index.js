@@ -19,12 +19,20 @@ import EditMemberProfile from '../views/EditMemberProfile.vue'
 import LoginChoice from '../views/LoginChoice.vue'
 import MemberLogin from '../views/MemberLogin.vue'
 import NewRegister from '../views/NewRegister.vue'
+import ForgotPassword from '../views/ForgotPassword.vue'
+import ChangePassword from '../views/ChangePassword.vue'
+import AdminLogin from '../views/AdminLogin.vue'
+import MemoryCodeView from '../views/MemoryCodeView.vue'
 
 const routes = [
   { path: '/', component: LoginChoice },
   { path: '/home', component: Home },
   { path: '/member-login', component: MemberLogin },
   { path: '/register', component: NewRegister },
+  { path: '/forgot-password', component: ForgotPassword },
+  { path: '/change-password', component: ChangePassword },
+  { path: '/admin-login', component: AdminLogin },
+  { path: '/memory-code-view', component: MemoryCodeView },
   
   // 公开路由
   { path: '/members', component: Members },

@@ -12,6 +12,9 @@ func InitRoutes(e *echo.Echo) {
 	// 认证相关路由（无需权限）
 	api.POST("/login", controllers.Login)
 	api.POST("/register", controllers.Register)
+	api.POST("/forgot-password", controllers.ForgotPassword)
+	api.POST("/change-password", controllers.ChangePassword)
+	api.GET("/memory-code", controllers.GetMemoryCode)
 
 	// 公开路由（访客可访问）
 	api.GET("/club_members", controllers.GetClubMembers)
