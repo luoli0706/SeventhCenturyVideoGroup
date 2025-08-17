@@ -12,16 +12,28 @@ const isDark = ref(false)
 const toggleTheme = () => {
   isDark.value = !isDark.value
   if (isDark.value) {
+    document.documentElement.setAttribute('data-theme', 'dark')
     document.body.setAttribute('arco-theme', 'dark')
   } else {
+    document.documentElement.removeAttribute('data-theme')
     document.body.removeAttribute('arco-theme')
   }
+  
+  // 保存主题设置到localStorage
+  localStorage.setItem('theme', isDark.value ? 'dark' : 'light')
 }
 
 onMounted(() => {
-  // 保证刷新后主题一致
-  if (document.body.getAttribute('arco-theme') === 'dark') {
+  // 从localStorage读取保存的主题设置
+  const savedTheme = localStorage.getItem('theme')
+  if (savedTheme === 'dark') {
     isDark.value = true
+    document.documentElement.setAttribute('data-theme', 'dark')
+    document.body.setAttribute('arco-theme', 'dark')
+  } else {
+    isDark.value = false
+    document.documentElement.removeAttribute('data-theme')
+    document.body.removeAttribute('arco-theme')
   }
 })
 </script>

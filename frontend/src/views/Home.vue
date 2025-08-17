@@ -1,5 +1,12 @@
 <template>
   <div :class="['bg-wrapper', isDark ? 'bg-dark' : 'bg-light']">
+    <!-- 右上角圣诞树链接 -->
+    <div class="christmas-link">
+      <a href="http://7thcv.cn:721/" target="_blank" rel="noopener noreferrer" title="访问特别页面">
+        🎄
+      </a>
+    </div>
+    
     <div class="side-img left"></div>
     <div class="home-bg">
       <div class="content-wrapper">
@@ -36,7 +43,7 @@
 import { ref, onMounted } from 'vue'
 import Title from '../components/Title.vue'
 import SearchBox from '../components/SearchBox.vue'
-import HomeMenu from '../components/HomeMenu.vue'
+import HomeMenu from '../components/HomeMenuNew.vue'
 import ThemeSwitcher from '../components/ThemeSwitcher.vue'
 
 const isDark = ref(false)
@@ -62,6 +69,27 @@ onMounted(() => {
   transition: background 0.3s;
   position: relative;
 }
+
+.christmas-link {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 100;
+}
+
+.christmas-link a {
+  display: inline-block;
+  font-size: 32px;
+  text-decoration: none;
+  transition: transform 0.3s ease;
+  filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));
+}
+
+.christmas-link a:hover {
+  transform: scale(1.2) rotate(5deg);
+  filter: drop-shadow(2px 2px 8px rgba(0,0,0,0.5));
+}
+
 .bg-light {
   background: #fff;
 }

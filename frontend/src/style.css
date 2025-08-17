@@ -2,15 +2,29 @@
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* 浅色主题默认样式 */
+:root {
+  color-scheme: light;
+  color: #333;
+  background-color: #ffffff;
+}
+
+/* 深色主题样式 */
+[data-theme="dark"] {
+  color-scheme: dark;
+  color: #e2e8f0;
+  background-color: #1a202c;
+}
+
+[data-theme="dark"] body {
+  background-color: #1a202c;
+  color: #e2e8f0;
 }
 
 a {
@@ -29,13 +43,24 @@ body {
   background-color: #fff;
   background-image: url('/视小姬.png');
   background-repeat: no-repeat;
-  background-position: center center;
-  background-size: contain;
+  background-attachment: fixed;
+  background-position: bottom right;
+  background-size: 15%;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 h1 {
   font-size: 3.2em;
   line-height: 1.1;
+}
+
+/* 深色模式下的链接颜色 */
+[data-theme="dark"] a {
+  color: #63b3ed;
+}
+
+[data-theme="dark"] a:hover {
+  color: #90cdf4;
 }
 
 button {
