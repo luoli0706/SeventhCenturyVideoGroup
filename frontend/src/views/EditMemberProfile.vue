@@ -66,6 +66,7 @@
 import { reactive, ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import axios from 'axios'
+import { auth } from '../utils/auth'
 
 const router = useRouter()
 const route = useRoute()
@@ -142,6 +143,27 @@ async function handleSubmit() {
 
 onMounted(() => {
   memberName.value = decodeURIComponent(route.params.name)
+  
+  // 权限检查
+  if (!auth.isMember()) {
+    alert('只有社团成员才能完善个人主页')
+    router.push('/home')
+    return
+  }
+  
+  const currentUser = auth.getUserInfo()
+  if (!currentUser || !currentUser.cn) {
+    alert('获取用户信息失败，请重新登录')
+    router.push('/home')
+    return
+  }
+  
+  if (currentUser.cn !== memberName.value) {
+    alert('您无权修改该主页')
+    router.push('/home')
+    return
+  }
+  
   currentAvatarFile.value = null // 清除文件引用
   loadExistingProfile()
 })

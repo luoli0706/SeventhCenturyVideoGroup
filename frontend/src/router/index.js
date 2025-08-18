@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { requireMember } from '../utils/auth'
+import { requireMember, requireMemberOwner } from '../utils/auth'
 
 import Home from '../views/Home.vue'
 import Members from '../views/Members.vue'
@@ -55,7 +55,7 @@ const routes = [
   { 
     path: '/member/:name/edit', 
     component: EditMemberProfile,
-    beforeEnter: requireMember
+    beforeEnter: requireMemberOwner
   }
 ]
 

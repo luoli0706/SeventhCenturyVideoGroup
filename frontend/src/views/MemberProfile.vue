@@ -13,9 +13,8 @@
         </div>
         <div class="no-profile-tip">
           <a-empty description="该成员尚未完善个人主页">
-            <router-link :to="`/member/${encodeURIComponent(memberName)}/edit`">
-              <a-button type="primary">完善个人主页</a-button>
-            </router-link>
+            <a-button v-if="canEdit" type="primary" @click="handleEditProfile">完善个人主页</a-button>
+            <span v-else style="color: #999;">该成员尚未完善个人主页</span>
           </a-empty>
         </div>
       </div>
@@ -41,9 +40,7 @@
       
       <a-space style="margin-top: 24px;">
         <a-button @click="goBack">返回成员列表</a-button>
-        <router-link :to="`/member/${encodeURIComponent(memberName)}/edit`">
-          <a-button type="primary">{{ profileExists ? '编辑主页' : '完善主页' }}</a-button>
-        </router-link>
+        <a-button v-if="canEdit" type="primary" @click="handleEditProfile">{{ profileExists ? '编辑主页' : '完善主页' }}</a-button>
       </a-space>
     </a-card>
   </div>
@@ -53,6 +50,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import axios from 'axios'
+import { auth } from '../utils/auth'
 
 const router = useRouter()
 const route = useRoute()
@@ -60,12 +58,55 @@ const memberName = ref('')
 const memberInfo = ref({})
 const profileExists = ref(false)
 const profileData = ref({})
+const canEdit = ref(false) // 新增：是否可以编辑的权限标志
 
 // 定义API基础URL
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
 
 function goBack() {
   router.back()
+}
+
+// 检查用户是否有编辑权限
+function checkEditPermission() {
+  // 检查是否为社团成员
+  if (!auth.isMember()) {
+    return false
+  }
+  
+  // 获取当前登录用户信息
+  const currentUser = auth.getUserInfo()
+  if (!currentUser || !currentUser.cn) {
+    return false
+  }
+  
+  // 检查是否为本人
+  return currentUser.cn === memberName.value
+}
+
+// 处理编辑个人主页的权限检查
+function handleEditProfile() {
+  // 检查是否为社团成员
+  if (!auth.isMember()) {
+    alert('只有社团成员才能完善个人主页')
+    return
+  }
+  
+  // 获取当前登录用户信息
+  const currentUser = auth.getUserInfo()
+  if (!currentUser || !currentUser.cn) {
+    alert('获取用户信息失败，请重新登录')
+    return
+  }
+  
+  // 检查是否为本人
+  if (currentUser.cn !== memberName.value) {
+    alert('您无权修改该主页')
+    return
+  }
+  
+  // 权限检查通过，跳转到编辑页面
+  router.push(`/member/${encodeURIComponent(memberName.value)}/edit`)
 }
 
 // 检查个人主页是否存在
@@ -90,6 +131,9 @@ async function getProfileData() {
 
 onMounted(async () => {
   memberName.value = decodeURIComponent(route.params.name)
+  
+  // 检查编辑权限
+  canEdit.value = checkEditPermission()
   
   // 获取成员基本信息
   try {
