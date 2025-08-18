@@ -1,12 +1,11 @@
 package controllers
 
 import (
-	"crypto/rand"
-	"fmt"
-	"math/big"
+	"math/rand"
 	"net/http"
 	"seventhcenturyvideogroup/backend/go-echo-sqlite/config"
 	"seventhcenturyvideogroup/backend/go-echo-sqlite/models"
+	"strconv"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -110,7 +109,7 @@ func GetMemoryCode(c echo.Context) error {
 
 	if err != nil {
 		// 如果今天没有备忘码，生成一个新的
-		newCode := generateMemoryCode()
+		newCode := generateMemoryCode(today)
 		memoryCode = models.MemoryCode{
 			Code: newCode,
 			Date: today,
@@ -127,21 +126,26 @@ func GetMemoryCode(c echo.Context) error {
 	})
 }
 
-// 生成随机备忘码（6位数字）
-func generateMemoryCode() string {
-	// 生成6位随机数字
-	max := big.NewInt(999999)
-	min := big.NewInt(100000)
-	diff := big.NewInt(0).Sub(max, min)
-
-	n, err := rand.Int(rand.Reader, diff)
+// 生成基于日期的四位数备忘码
+func generateMemoryCode(dateStr string) string {
+	// 解析日期字符串为时间对象
+	date, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
-		// 如果随机数生成失败，使用时间戳后6位
-		return fmt.Sprintf("%06d", time.Now().Unix()%1000000)
+		// 如果解析失败，使用当前时间
+		date = time.Now()
 	}
 
-	result := big.NewInt(0).Add(min, n)
-	return result.String()
+	// 使用日期的年月日作为种子，确保同一天生成相同的备忘码
+	year, month, day := date.Date()
+	seed := int64(year*10000 + int(month)*100 + day)
+
+	// 设置随机种子
+	rand.Seed(seed)
+
+	// 生成1000-9999之间的四位数
+	code := rand.Intn(9000) + 1000
+
+	return strconv.Itoa(code)
 }
 
 // 清理过期备忘码（可以在定时任务中调用）
