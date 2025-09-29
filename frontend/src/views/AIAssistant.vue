@@ -7,7 +7,9 @@
         返回首页
       </a-button>
       <h1 class="assistant-title">视小姬 AI助手</h1>
-      <div style="width: 100px;"></div> <!-- 占位符，保持标题居中 -->
+      <a-button type="outline" @click="startNewSession" size="small">
+        新对话
+      </a-button>
     </div>
 
     <div class="main-container">
@@ -32,8 +34,11 @@
           <div v-if="messages.length === 0" class="welcome-message">
             <div class="avatar assistant-avatar">视</div>
             <div class="message-content">
-              <h2>你好！</h2>
-              <p>我是柒世纪视频组的AI助手我是视小姬，很高兴为您服务喵！有什么问题可以随时问我喵～</p>
+              <h2>你好！我是视小姬</h2>
+              <p>我是第七世纪视频组的AI助手，很高兴为您服务喵！有什么问题可以随时问我喵～</p>
+              <div class="session-info">
+                <small>会话ID: {{ sessionId }}</small>
+              </div>
             </div>
           </div>
 
@@ -131,6 +136,21 @@ const inputMessage = ref('')
 const isLoading = ref(false)
 const selectedModel = ref('deepseek-v3')
 const messagesArea = ref(null)
+const sessionId = ref('')
+
+// 生成会话ID
+const generateSessionId = () => {
+  const userInfo = auth.getUserInfo()
+  const userId = userInfo?.cn || 'guest'
+  const timestamp = Date.now()
+  return `${userId}-${timestamp}-${Math.random().toString(36).substr(2, 9)}`
+}
+
+// 初始化会话ID
+const initializeSession = () => {
+  sessionId.value = generateSessionId()
+  console.log('会话ID已生成:', sessionId.value)
+}
 
 // 用户权限检查
 const isUserMember = computed(() => {
@@ -150,6 +170,13 @@ const getUserInitial = () => {
 // 返回首页
 const goBack = () => {
   router.push('/home')
+}
+
+// 开始新会话
+const startNewSession = () => {
+  messages.value = []
+  initializeSession()
+  console.log('新会话已开始，ID:', sessionId.value)
 }
 
 // 发送消息
@@ -181,16 +208,23 @@ const handleSend = async (event) => {
   isLoading.value = true
 
   try {
-    // 发送请求到n8n容器
-    const response = await fetch('http://localhost:5678/webhook/ai-chat', {
+    // 发送请求到n8n容器 - 使用代理避免跨域问题
+    const apiUrl = import.meta.env.DEV 
+      ? '/api/n8n/webhook-test/ai-chat' 
+      : 'http://localhost:5678/webhook-test/ai-chat'
+      
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'text/plain',
       },
       body: JSON.stringify({
+        sessionId: sessionId.value,
         cn: userInfo?.cn || 'unknown',
         message: message,
-        model: selectedModel.value
+        model: selectedModel.value,
+        timestamp: new Date().toISOString()
       })
     })
 
@@ -198,28 +232,122 @@ const handleSend = async (event) => {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
 
-    const data = await response.json()
-    
-    // 添加AI回复
+    // 创建AI消息占位符
     const aiMessage = {
       id: Date.now() + 1,
       role: 'assistant',
-      content: data.response || '抱歉，我暂时无法回应，请稍后再试。',
+      content: '',
       timestamp: new Date()
     }
     messages.value.push(aiMessage)
+    
+    // 处理流式响应
+    console.log('开始处理流式响应...')
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let receivedAnyContent = false
+
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) {
+        console.log('流式响应读取完成')
+        break
+      }
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || '' // 保留最后一行（可能不完整）
+
+      for (const line of lines) {
+        if (line.trim()) {
+          try {
+            const data = JSON.parse(line)
+            console.log('解析到数据:', data)
+            
+            if (data.type === 'item' && data.content) {
+              receivedAnyContent = true
+              // 实时更新消息内容
+              const messageIndex = messages.value.findIndex(msg => msg.id === aiMessage.id)
+              if (messageIndex !== -1) {
+                messages.value[messageIndex].content += data.content
+                // 滚动到底部
+                await nextTick()
+                scrollToBottom()
+              }
+            } else if (data.type === 'begin') {
+              console.log('开始接收AI响应')
+            } else if (data.type === 'end') {
+              console.log('AI响应结束')
+            }
+          } catch (parseError) {
+            console.warn('解析流数据失败:', parseError, '原始数据:', line)
+          }
+        }
+      }
+    }
+
+    // 处理缓冲区剩余数据
+    if (buffer.trim()) {
+      try {
+        const data = JSON.parse(buffer)
+        if (data.type === 'item' && data.content) {
+          const messageIndex = messages.value.findIndex(msg => msg.id === aiMessage.id)
+          if (messageIndex !== -1) {
+            messages.value[messageIndex].content += data.content
+          }
+        }
+      } catch (parseError) {
+        console.warn('解析最后数据失败:', parseError)
+      }
+    }
+
+    // 如果没有收到任何内容，显示默认消息
+    const finalMessageIndex = messages.value.findIndex(msg => msg.id === aiMessage.id)
+    if (finalMessageIndex !== -1 && !messages.value[finalMessageIndex].content.trim()) {
+      messages.value[finalMessageIndex].content = receivedAnyContent 
+        ? '响应已完成，但内容为空。' 
+        : '抱歉，我暂时无法回应，请稍后再试。'
+    }
+    
+    console.log('最终消息内容:', messages.value[finalMessageIndex]?.content)
 
   } catch (error) {
     console.error('发送消息失败:', error)
     
-    // 添加错误消息
-    const errorMessage = {
-      id: Date.now() + 1,
-      role: 'assistant',
-      content: '抱歉，连接AI服务时出现了问题，请检查网络连接或稍后再试。',
-      timestamp: new Date()
+    let errorContent = '抱歉，连接AI服务时出现了问题。'
+    
+    // 根据错误类型提供更具体的错误信息
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      errorContent = '无法连接到AI服务，请检查n8n服务是否正在运行。'
+    } else if (error.message.includes('CORS')) {
+      errorContent = 'CORS跨域错误，请检查n8n webhook配置。'
+    } else if (error.message.includes('500')) {
+      errorContent = 'AI服务内部错误，请稍后再试或联系管理员。'
+    } else if (error.message.includes('404')) {
+      errorContent = 'AI服务端点未找到，请检查webhook配置。'
+    } else if (error.message.includes('JSON')) {
+      errorContent = '数据格式解析错误，AI服务可能正在处理中，请稍后再试。'
     }
-    messages.value.push(errorMessage)
+    
+    // 检查是否已经有AI消息，如果有就更新它，否则创建新的错误消息
+    const existingAiMessageIndex = messages.value.findIndex(
+      msg => msg.role === 'assistant' && msg.content === ''
+    )
+    
+    if (existingAiMessageIndex !== -1) {
+      // 更新现有的空消息
+      messages.value[existingAiMessageIndex].content = errorContent
+    } else {
+      // 添加新的错误消息
+      const errorMessage = {
+        id: Date.now() + 1,
+        role: 'assistant',
+        content: errorContent,
+        timestamp: new Date()
+      }
+      messages.value.push(errorMessage)
+    }
   } finally {
     isLoading.value = false
     await nextTick()
@@ -253,6 +381,9 @@ const updateTheme = () => {
 }
 
 onMounted(() => {
+  // 初始化会话ID
+  initializeSession()
+  
   updateTheme()
   // 监听主题变化
   const observer = new MutationObserver(updateTheme)
@@ -388,6 +519,19 @@ onMounted(() => {
   margin: 0;
   color: var(--color-text-2);
   line-height: 1.6;
+}
+
+.session-info {
+  margin-top: 8px;
+  padding: 4px 8px;
+  background: var(--color-bg-3);
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.session-info small {
+  color: var(--color-text-3);
+  font-size: 12px;
 }
 
 /* 消息 */

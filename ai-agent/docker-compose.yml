@@ -47,6 +47,12 @@ services:
       - N8N_PORT=5678
       - N8N_PROTOCOL=http
       
+      # CORS 跨域配置
+      - N8N_CORS_ORIGIN=*
+      - WEBHOOK_URL=http://localhost:5678/
+      - N8N_DISABLE_UI=false
+      - N8N_SKIP_WEBHOOK_DEREGISTRATION_SHUTDOWN=true
+      
       # 执行配置
       - EXECUTIONS_PROCESS=main
       - EXECUTIONS_DATA_SAVE_ON_ERROR=all
@@ -73,6 +79,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+      
 
 volumes:
   n8n_data:
