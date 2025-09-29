@@ -34,8 +34,8 @@
           <div v-if="messages.length === 0" class="welcome-message">
             <div class="avatar assistant-avatar">视</div>
             <div class="message-content">
-              <h2>你好！我是视小姬</h2>
-              <p>我是第七世纪视频组的AI助手，很高兴为您服务喵！有什么问题可以随时问我喵～</p>
+              <h2>你好！</h2>
+              <p>我是柒世纪视频组的AI助手视小姬，很高兴为您服务喵！有什么问题可以随时问我喵～</p>
               <div class="session-info">
                 <small>会话ID: {{ sessionId }}</small>
               </div>
@@ -46,7 +46,15 @@
           <div v-for="message in messages" :key="message.id" :class="['message', message.role]">
             <div v-if="message.role === 'assistant'" class="avatar assistant-avatar">视</div>
             <div class="message-content">
-              <div class="message-text">{{ message.content }}</div>
+              <div 
+                v-if="message.role === 'assistant'" 
+                class="message-text markdown-content"
+                v-html="renderMarkdown(message.content)"
+              ></div>
+              <div 
+                v-else 
+                class="message-text user-message"
+              >{{ message.content }}</div>
               <div class="message-time">{{ formatTime(message.timestamp) }}</div>
             </div>
             <div v-if="message.role === 'user'" class="avatar user-avatar">{{ getUserInitial() }}</div>
@@ -138,6 +146,60 @@ const selectedModel = ref('deepseek-v3')
 const messagesArea = ref(null)
 const sessionId = ref('')
 
+// Markdown渲染函数
+const renderMarkdown = (text) => {
+  if (!text) return ''
+  
+  // 转义HTML特殊字符
+  const escapeHtml = (str) => {
+    const div = document.createElement('div')
+    div.textContent = str
+    return div.innerHTML
+  }
+  
+  let html = escapeHtml(text)
+  
+  // 代码块 (```)
+  html = html.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
+    return `<pre class="code-block"><code class="language-${lang || ''}">${code.trim()}</code></pre>`
+  })
+  
+  // 行内代码 (`)
+  html = html.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
+  
+  // 粗体 (**)
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+  
+  // 斜体 (*)
+  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>')
+  
+  // 标题 (#)
+  html = html.replace(/^### (.*$)/gm, '<h3>$1</h3>')
+  html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>')
+  html = html.replace(/^# (.*$)/gm, '<h1>$1</h1>')
+  
+  // 链接 [text](url)
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+  
+  // 无序列表 (-)
+  html = html.replace(/^- (.*$)/gm, '<li>$1</li>')
+  html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
+  
+  // 有序列表 (1.)
+  html = html.replace(/^\d+\. (.*$)/gm, '<li>$1</li>')
+  
+  // 换行处理
+  html = html.replace(/\n\n/g, '</p><p>')
+  html = html.replace(/\n/g, '<br>')
+  
+  // 包装段落
+  if (!html.startsWith('<')) {
+    html = '<p>' + html + '</p>'
+  }
+  
+  return html
+}
+
 // 生成会话ID
 const generateSessionId = () => {
   const userInfo = auth.getUserInfo()
@@ -208,10 +270,10 @@ const handleSend = async (event) => {
   isLoading.value = true
 
   try {
-    // 发送请求到n8n容器 - 使用代理避免跨域问题
+    // 发送请求到n8n容器 - 开发环境和生产环境使用不同的端点
     const apiUrl = import.meta.env.DEV 
-      ? '/api/n8n/webhook-test/ai-chat' 
-      : 'http://localhost:5678/webhook-test/ai-chat'
+      ? '/api/n8n/webhook-test/ai-chat'  // 开发环境：使用webhook-test
+      : 'http://localhost:5678/webhook/ai-chat'  // 生产环境：使用webhook
       
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -507,18 +569,25 @@ onMounted(() => {
   gap: 12px;
   max-width: 600px;
   margin-bottom: 24px;
+  text-align: left;
+}
+
+.welcome-message .message-content {
+  text-align: left;
 }
 
 .welcome-message h2 {
   margin: 0 0 8px 0;
   font-size: 20px;
   color: var(--color-text-1);
+  text-align: left;
 }
 
 .welcome-message p {
   margin: 0;
   color: var(--color-text-2);
   line-height: 1.6;
+  text-align: left;
 }
 
 .session-info {
@@ -540,12 +609,14 @@ onMounted(() => {
   align-items: flex-start;
   gap: 12px;
   margin-bottom: 24px;
-  max-width: 600px;
+  max-width: 800px;
+  width: 100%;
 }
 
 .message.user {
   margin-left: auto;
   flex-direction: row-reverse;
+  max-width: 600px;
 }
 
 .avatar {
@@ -580,13 +651,111 @@ onMounted(() => {
   padding: 12px 16px;
   border-radius: 12px;
   line-height: 1.6;
-  white-space: pre-wrap;
   word-wrap: break-word;
+  text-align: left;
+}
+
+.user-message {
+  white-space: pre-wrap;
 }
 
 .message.user .message-text {
   background: var(--color-primary-6);
   color: white;
+  white-space: pre-wrap;
+}
+
+/* Markdown样式 */
+.markdown-content {
+  text-align: left;
+}
+
+.markdown-content p {
+  margin: 0 0 8px 0;
+  line-height: 1.6;
+}
+
+.markdown-content p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3 {
+  margin: 16px 0 8px 0;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.markdown-content h1 {
+  font-size: 1.4em;
+  color: var(--color-text-1);
+}
+
+.markdown-content h2 {
+  font-size: 1.2em;
+  color: var(--color-text-1);
+}
+
+.markdown-content h3 {
+  font-size: 1.1em;
+  color: var(--color-text-1);
+}
+
+.markdown-content strong {
+  font-weight: 600;
+  color: var(--color-text-1);
+}
+
+.markdown-content em {
+  font-style: italic;
+  color: var(--color-text-2);
+}
+
+.markdown-content code.inline-code {
+  background: var(--color-fill-2);
+  color: var(--color-text-1);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.markdown-content pre.code-block {
+  background: var(--color-bg-3);
+  border: 1px solid var(--color-border-2);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 8px 0;
+  overflow-x: auto;
+}
+
+.markdown-content pre.code-block code {
+  background: none;
+  color: var(--color-text-1);
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.9em;
+  line-height: 1.4;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.markdown-content li {
+  margin: 4px 0;
+  line-height: 1.6;
+}
+
+.markdown-content a {
+  color: var(--color-primary-6);
+  text-decoration: none;
+}
+
+.markdown-content a:hover {
+  text-decoration: underline;
 }
 
 .message-time {
@@ -733,5 +902,26 @@ onMounted(() => {
 .dark-theme .input-area {
   background: #0b0b0c;
   border-top-color: #2e2e30;
+}
+
+/* 暗色主题下的Markdown样式 */
+.dark-theme .markdown-content pre.code-block {
+  background: #1e1e1e;
+  border-color: #3e3e42;
+}
+
+.dark-theme .markdown-content code.inline-code {
+  background: #2e2e30;
+  color: #e5e5e5;
+}
+
+.dark-theme .markdown-content h1,
+.dark-theme .markdown-content h2,
+.dark-theme .markdown-content h3 {
+  color: #ffffff;
+}
+
+.dark-theme .markdown-content strong {
+  color: #ffffff;
 }
 </style>
