@@ -1,0 +1,25 @@
+{
+  "name": "svcg-docs",
+  "version": "1.0.0",
+  "description": "SeventhCenturyVideoGroup 开发者文档",
+  "type": "module",
+  "scripts": {
+    "docs:dev": "vuepress dev .",
+    "docs:build": "vuepress build .",
+    "docs:serve": "vuepress serve ."
+  },
+  "keywords": [
+    "vuepress",
+    "documentation",
+    "svcg",
+    "vue"
+  ],
+  "author": "SeventhCenturyVideoGroup",
+  "license": "MIT",
+  "devDependencies": {
+    "@vuepress/bundler-vite": "^2.0.0-rc.18",
+    "@vuepress/theme-default": "^2.0.0-rc.18",
+    "sass-embedded": "^1.90.0",
+    "vuepress": "^2.0.0-rc.18"
+  }
+}
