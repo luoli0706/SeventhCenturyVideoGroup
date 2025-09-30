@@ -272,7 +272,7 @@ const handleSend = async (event) => {
   try {
     // 发送请求到n8n容器 - 开发环境和生产环境使用不同的端点
     const apiUrl = import.meta.env.DEV 
-      ? '/api/n8n/webhook-test/ai-chat'  // 开发环境：使用webhook-test
+      ? '/api/n8n/webhook/ai-chat'  // 开发环境：使用webhook-test
       : 'http://localhost:5678/webhook/ai-chat'  // 生产环境：使用webhook
       
     const response = await fetch(apiUrl, {
