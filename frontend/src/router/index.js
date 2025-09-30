@@ -24,40 +24,68 @@ import ChangePassword from '../views/ChangePassword.vue'
 import AdminLogin from '../views/AdminLogin.vue'
 import MemoryCodeView from '../views/MemoryCodeView.vue'
 import AIAssistant from '../views/AIAssistant.vue'
+import VerifyPage from '../views/VerifyPage.vue'
+
+// Cloudflare验证守卫
+const requireVerification = (to, from, next) => {
+  // 开发环境跳过验证
+  if (import.meta.env.DEV) {
+    next()
+    return
+  }
+
+  // 检查验证状态
+  const verifyToken = localStorage.getItem('cf_verify_token')
+  const verifyExpires = localStorage.getItem('cf_verify_expires')
+  
+  if (verifyToken && verifyExpires && Date.now() < parseInt(verifyExpires)) {
+    // 验证有效
+    next()
+  } else {
+    // 需要验证
+    localStorage.removeItem('cf_verify_token')
+    localStorage.removeItem('cf_verify_expires')
+    next('/verify')
+  }
+}
 
 const routes = [
-  { path: '/', component: LoginChoice },
-  { path: '/home', component: Home },
-  { path: '/member-login', component: MemberLogin },
-  { path: '/register', component: NewRegister },
-  { path: '/forgot-password', component: ForgotPassword },
-  { path: '/change-password', component: ChangePassword },
-  { path: '/admin-login', component: AdminLogin },
-  { path: '/memory-code-view', component: MemoryCodeView },
+  // 验证页面 (无需守卫)
+  { path: '/verify', component: VerifyPage },
   
-  // 公开路由
-  { path: '/members', component: Members },
-  { path: '/members/all-years', component: AllYears },
-  { path: '/members/current', component: Current },
-  { path: '/members/active-by-year', component: ActiveByYear },
-  { path: '/events', component: Events },
-  { path: '/animation', component: Animation },
-  { path: '/static', component: Static },
-  { path: '/3d', component: ThreeD },
-  { path: '/recruit', component: Recruit },
-  { path: '/member/:name', component: MemberProfile },
-  { path: '/ai-assistant', component: AIAssistant },
+  // 登录相关页面 (需要验证)
+  { path: '/', component: LoginChoice, beforeEnter: requireVerification },
+  { path: '/member-login', component: MemberLogin, beforeEnter: requireVerification },
+  { path: '/register', component: NewRegister, beforeEnter: requireVerification },
+  { path: '/forgot-password', component: ForgotPassword, beforeEnter: requireVerification },
+  { path: '/change-password', component: ChangePassword, beforeEnter: requireVerification },
+  { path: '/admin-login', component: AdminLogin, beforeEnter: requireVerification },
+  { path: '/memory-code-view', component: MemoryCodeView, beforeEnter: requireVerification },
   
-  // 需要成员权限的路由
+  // 主要页面 (需要验证)
+  { path: '/home', component: Home, beforeEnter: requireVerification },
+  { path: '/members', component: Members, beforeEnter: requireVerification },
+  { path: '/members/all-years', component: AllYears, beforeEnter: requireVerification },
+  { path: '/members/current', component: Current, beforeEnter: requireVerification },
+  { path: '/members/active-by-year', component: ActiveByYear, beforeEnter: requireVerification },
+  { path: '/events', component: Events, beforeEnter: requireVerification },
+  { path: '/animation', component: Animation, beforeEnter: requireVerification },
+  { path: '/static', component: Static, beforeEnter: requireVerification },
+  { path: '/3d', component: ThreeD, beforeEnter: requireVerification },
+  { path: '/recruit', component: Recruit, beforeEnter: requireVerification },
+  { path: '/member/:name', component: MemberProfile, beforeEnter: requireVerification },
+  { path: '/ai-assistant', component: AIAssistant, beforeEnter: requireVerification },
+  
+  // 需要成员权限的路由 (验证 + 成员权限)
   { 
     path: '/events/upload', 
     component: UploadEvent,
-    beforeEnter: requireMember
+    beforeEnter: [requireVerification, requireMember]
   },
   { 
     path: '/member/:name/edit', 
     component: EditMemberProfile,
-    beforeEnter: requireMemberOwner
+    beforeEnter: [requireVerification, requireMemberOwner]
   }
 ]
 

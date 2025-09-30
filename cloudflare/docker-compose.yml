@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # Cloudflare Turnstile 验证服务
+  cf-verify-service:
+    image: node:18-alpine
+    container_name: cf_verify_service
+    restart: unless-stopped
+    working_dir: /app
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./verify-service:/app
+      - verify_logs:/app/logs
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - TURNSTILE_SECRET_KEY=${TURNSTILE_SECRET_KEY}
+      - TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY}
+      - ALLOWED_ORIGINS=https://7thcv.cn,http://localhost:5173
+    networks:
+      - scvg_network
+    command: sh -c "npm install && npm start"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Redis缓存验证状态
+  redis-verify:
+    image: redis:7.2-alpine
+    container_name: cf_redis_verify
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_verify_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    networks:
+      - scvg_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  scvg_network:
+    driver: bridge
+    external: true
+
+volumes:
+  verify_logs:
+    driver: local
+  redis_verify_data:
+    driver: local

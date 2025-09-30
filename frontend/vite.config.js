@@ -22,6 +22,17 @@ export default defineConfig({
             console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
           });
         }
+      },
+      // 代理Cloudflare验证服务
+      '/api/cf-verify': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/cf-verify/, ''),
+        configure: (proxy, options) => {
+          proxy.on('error', (err, req, res) => {
+            console.log('cf-verify proxy error', err);
+          });
+        }
       }
     }
   }
