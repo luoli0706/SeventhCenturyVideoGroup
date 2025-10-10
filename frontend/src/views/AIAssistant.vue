@@ -270,7 +270,37 @@ const handleSend = async (event) => {
   isLoading.value = true
 
   try {
-    // 发送请求到n8n容器 - 开发环境和生产环境使用不同的端点
+    // 第一步：通过RAG API处理用户查询
+    console.log('开始RAG处理...')
+    const ragResponse = await fetch('/api/rag/query', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: message,
+        top_k: 3,
+        category: '' // 可以根据需要设置类别过滤
+      })
+    })
+
+    let enhancedQuery = message // 默认使用原始查询
+    
+    if (ragResponse.ok) {
+      const ragData = await ragResponse.json()
+      console.log('RAG处理结果:', ragData)
+      
+      // 使用RAG增强后的查询
+      if (ragData.enhanced_query && ragData.enhanced_query.trim()) {
+        enhancedQuery = ragData.enhanced_query
+        console.log('使用RAG增强查询:', enhancedQuery)
+      }
+    } else {
+      console.warn('RAG处理失败，使用原始查询:', ragResponse.status)
+    }
+
+    // 第二步：发送处理后的查询到n8n容器
+    console.log('发送到n8n...')
     const apiUrl = import.meta.env.DEV 
       ? '/api/n8n/webhook/ai-chat'  // 开发环境：使用webhook-test
       : 'http://localhost:5678/webhook/ai-chat'  // 生产环境：使用webhook
@@ -284,7 +314,8 @@ const handleSend = async (event) => {
       body: JSON.stringify({
         sessionId: sessionId.value,
         cn: userInfo?.cn || 'unknown',
-        message: message,
+        message: enhancedQuery, // 使用RAG增强后的查询
+        originalMessage: message, // 保留原始用户消息用于记录
         model: selectedModel.value,
         timestamp: new Date().toISOString()
       })
