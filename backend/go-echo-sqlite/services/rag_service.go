@@ -1,10 +1,12 @@
 package services
 
 import (
+	"bytes"
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"os"
@@ -42,14 +44,58 @@ type DeepSeekChatChoice struct {
 	FinishReason string              `json:"finish_reason"`
 }
 
+// Deepseek Embedding API 相关结构体
+type DeepSeekEmbeddingRequest struct {
+	Model          string   `json:"model"`
+	Input          []string `json:"input"`
+	EncodingFormat string   `json:"encoding_format,omitempty"`
+}
+
+type DeepSeekEmbeddingResponse struct {
+	Object string                  `json:"object"`
+	Data   []DeepSeekEmbeddingData `json:"data"`
+	Model  string                  `json:"model"`
+	Usage  DeepSeekEmbeddingUsage  `json:"usage"`
+}
+
+type DeepSeekEmbeddingData struct {
+	Object    string    `json:"object"`
+	Index     int       `json:"index"`
+	Embedding []float64 `json:"embedding"`
+}
+
+type DeepSeekEmbeddingUsage struct {
+	PromptTokens int `json:"prompt_tokens"`
+	TotalTokens  int `json:"total_tokens"`
+}
+
 type RAGService struct {
 	apiKey     string
 	httpClient *http.Client
+	apiBase    string
+	model      string
 }
 
 func NewRAGService() *RAGService {
+	apiKey := os.Getenv("DEEPSEEK_API_KEY")
+	if apiKey == "" {
+		fmt.Println("警告: DEEPSEEK_API_KEY 环境变量未设置")
+	}
+
+	apiBase := os.Getenv("DEEPSEEK_API_BASE")
+	if apiBase == "" {
+		apiBase = "https://api.deepseek.com"
+	}
+
+	model := os.Getenv("DEEPSEEK_EMBEDDING_MODEL")
+	if model == "" {
+		model = "deepseek-chat"
+	}
+
 	return &RAGService{
-		apiKey:     "sk-ebd9b6eaf5144b4489be23b22f103808",
+		apiKey:     apiKey,
+		apiBase:    apiBase,
+		model:      model,
 		httpClient: &http.Client{Timeout: 30 * time.Second},
 	}
 }
@@ -369,76 +415,59 @@ func (r *RAGService) splitByLength(text string, maxLength int) []string {
 	return chunks
 }
 
-// generateEmbedding 生成文本向量（使用简单的文本特征）
+// generateEmbedding 调用Deepseek API生成文本向量
 func (r *RAGService) generateEmbedding(text string) ([]float64, error) {
-	// 由于DeepSeek主要是聊天模型，我们使用简单的文本特征作为向量
-	// 实际项目中建议使用专门的embedding模型
+	// 压缩输入文本
+	compressedText := r.compressSemanticContent(text, 100)
 
-	// 清理文本
-	text = strings.ToLower(strings.TrimSpace(text))
-	words := strings.Fields(text)
-
-	// 创建固定长度的向量（512维）
-	vectorSize := 512
-	vector := make([]float64, vectorSize)
-
-	// 基于文本内容生成特征向量
-	if len(words) == 0 {
-		return vector, nil
+	// 构建请求
+	request := DeepSeekEmbeddingRequest{
+		Model:          "deepseek-chat",
+		Input:          []string{compressedText},
+		EncodingFormat: "float",
 	}
 
-	// 1. 文本长度特征
-	vector[0] = float64(len(text)) / 1000.0 // 归一化
-	vector[1] = float64(len(words)) / 100.0
-
-	// 2. 关键词特征
-	keywords := []string{
-		"mad", "mmd", "视频", "剪辑", "制作", "教程", "软件", "特效",
-		"模型", "动画", "音乐", "素材", "创作", "学习", "技术", "工具",
-		"社团", "成员", "活动", "比赛", "项目", "培训", "指导", "问题",
+	jsonData, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("构建请求失败: %v", err)
 	}
 
-	for i, keyword := range keywords {
-		if i+2 < vectorSize && strings.Contains(text, keyword) {
-			vector[i+2] = 1.0
-		}
+	// 发送请求到Deepseek API
+	url := fmt.Sprintf("%s/v1/embeddings", r.apiBase)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("创建请求失败: %v", err)
 	}
 
-	// 3. 字符频率特征
-	charCount := make(map[rune]int)
-	for _, char := range text {
-		charCount[char]++
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", r.apiKey))
+
+	resp, err := r.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("API请求失败: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("读取响应失败: %v", err)
 	}
 
-	// 选择一些常见字符作为特征
-	commonChars := []rune{'的', '是', '和', '在', '有', '用', '要', '可', '以', '会'}
-	for i, char := range commonChars {
-		if i+50 < vectorSize {
-			if count, exists := charCount[char]; exists {
-				vector[i+50] = float64(count) / float64(len(text))
-			}
-		}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API返回错误状态码 %d: %s", resp.StatusCode, string(body))
 	}
 
-	// 4. 文本结构特征
-	if strings.Contains(text, "#") {
-		vector[100] = 1.0 // 包含标题
-	}
-	if strings.Contains(text, "```") {
-		vector[101] = 1.0 // 包含代码
-	}
-	if strings.Contains(text, "http") {
-		vector[102] = 1.0 // 包含链接
+	// 解析响应
+	var response DeepSeekEmbeddingResponse
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %v", err)
 	}
 
-	// 5. 随机化一些维度以增加区分度
-	for i := 200; i < vectorSize; i++ {
-		if i < len(text) {
-			vector[i] = float64(text[i%len(text)]) / 255.0
-		}
+	if len(response.Data) == 0 {
+		return nil, fmt.Errorf("响应中没有嵌入数据")
 	}
 
-	return vector, nil
+	return response.Data[0].Embedding, nil
 }
 
 // SearchSimilarChunks 搜索相似的文档块
@@ -516,6 +545,144 @@ func (r *RAGService) cosineSimilarity(a, b []float64) float64 {
 	}
 
 	return dotProduct / (math.Sqrt(normA) * math.Sqrt(normB))
+}
+
+// compressSemanticContent 对文本进行语义压缩，保留关键信息
+func (r *RAGService) compressSemanticContent(text string, maxLength int) string {
+	text = strings.TrimSpace(text)
+
+	if len(text) <= maxLength {
+		return text
+	}
+
+	// 关键词列表（按重要性排序）
+	keywords := []string{
+		"mad", "mmd", "视频", "剪辑", "制作", "教程", "软件", "特效",
+		"模型", "动画", "音乐", "素材", "创作", "学习", "技术", "工具",
+		"社团", "成员", "活动", "比赛", "项目", "培训", "问题", "解决",
+		"方法", "步骤", "指南", "推荐", "建议", "必要", "重要", "关键",
+	}
+
+	// 提取句子
+	sentences := strings.Split(text, "。")
+	var importantSentences []string
+
+	for _, sentence := range sentences {
+		sentence = strings.TrimSpace(sentence)
+		if sentence == "" {
+			continue
+		}
+
+		// 检查是否包含关键词
+		sentenceLower := strings.ToLower(sentence)
+		hasKeyword := false
+		for _, keyword := range keywords {
+			if strings.Contains(sentenceLower, keyword) {
+				hasKeyword = true
+				break
+			}
+		}
+
+		// 优先保留包含关键词的句子
+		if hasKeyword {
+			importantSentences = append(importantSentences, sentence)
+		}
+	}
+
+	// 如果关键句子足够，使用关键句子
+	var compressed string
+	if len(importantSentences) > 0 {
+		compressed = strings.Join(importantSentences, "。")
+	} else {
+		// 否则使用第一句或前几个单词
+		if len(sentences) > 0 {
+			compressed = sentences[0]
+		}
+	}
+
+	// 如果压缩后的文本仍然过长，进一步截断
+	if len(compressed) > maxLength {
+		compressed = compressed[:maxLength] + "..."
+	}
+
+	return compressed
+}
+
+// compressOutput 对输出结果进行语义压缩，保留关键内容
+func (r *RAGService) compressOutput(output string, maxLength int) string {
+	output = strings.TrimSpace(output)
+
+	if len(output) <= maxLength {
+		return output
+	}
+
+	// 优先保留以下内容：
+	// 1. 标题和关键信息
+	// 2. 推荐和建议
+	// 3. 步骤说明
+
+	lines := strings.Split(output, "\n")
+	var importantLines []string
+
+	importanceKeywords := []string{
+		"步骤", "建议", "推荐", "要点", "注意", "重要", "必须", "关键",
+		"解决", "方法", "解答", "答案", "结论", "总结", "【", "---",
+	}
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// 检查是否是重要行
+		isImportant := false
+		lineLower := strings.ToLower(line)
+
+		for _, keyword := range importanceKeywords {
+			if strings.Contains(lineLower, strings.ToLower(keyword)) {
+				isImportant = true
+				break
+			}
+		}
+
+		// 保留标题行（以# 或 ## 开头的行）
+		if strings.HasPrefix(line, "#") {
+			isImportant = true
+		}
+
+		if isImportant {
+			importantLines = append(importantLines, line)
+		}
+	}
+
+	// 组合重要行
+	var compressed string
+	if len(importantLines) > 0 {
+		compressed = strings.Join(importantLines, "\n")
+	} else {
+		// 如果没有重要行，使用前几行
+		for i := 0; i < len(lines) && i < 5; i++ {
+			if strings.TrimSpace(lines[i]) != "" {
+				importantLines = append(importantLines, lines[i])
+			}
+		}
+		compressed = strings.Join(importantLines, "\n")
+	}
+
+	// 最终截断到最大长度
+	if len(compressed) > maxLength {
+		// 尝试在句号处截断
+		truncated := compressed[:maxLength]
+		lastDot := strings.LastIndex(truncated, "。")
+		if lastDot > maxLength/2 {
+			compressed = compressed[:lastDot] + "。"
+		} else {
+			compressed = truncated + "..."
+		}
+	}
+
+	return compressed
 }
 
 // EnhanceQuery 使用检索到的上下文增强查询

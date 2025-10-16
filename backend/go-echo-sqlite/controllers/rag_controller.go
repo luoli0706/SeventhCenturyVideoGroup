@@ -10,6 +10,7 @@ import (
 	"seventhcenturyvideogroup/backend/go-echo-sqlite/models"
 	"seventhcenturyvideogroup/backend/go-echo-sqlite/services"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -235,10 +236,12 @@ func GetFAQs(c echo.Context) error {
 
 // sendToN8N 发送增强查询到n8n
 func sendToN8N(enhancedQuery, originalQuery string, relevantChunks []models.DocumentChunkResult) (string, error) {
-	// 构建上下文字符串
+	// 构建上下文字符串，对内容进行语义压缩
 	var contextBuilder bytes.Buffer
 	for i, chunk := range relevantChunks {
-		contextBuilder.WriteString(fmt.Sprintf("【参考资料%d - %s】\n%s\n\n", i+1, chunk.Title, chunk.Content))
+		// 压缩块内容（最大500字符）
+		compressedContent := compressChunkContent(chunk.Content, 500)
+		contextBuilder.WriteString(fmt.Sprintf("【参考资料%d - %s】\n%s\n\n", i+1, chunk.Title, compressedContent))
 	}
 
 	// 构建n8n请求
@@ -280,7 +283,145 @@ func sendToN8N(enhancedQuery, originalQuery string, relevantChunks []models.Docu
 		return "", fmt.Errorf("n8n响应错误: %s", resp.Status)
 	}
 
-	return string(body), nil
+	// 对返回结果进行语义压缩
+	response := string(body)
+	compressedResponse := compressOutputContent(response, 1000)
+
+	return compressedResponse, nil
+}
+
+// compressChunkContent 对文档块内容进行语义压缩
+func compressChunkContent(content string, maxLength int) string {
+	content = strings.TrimSpace(content)
+
+	if len(content) <= maxLength {
+		return content
+	}
+
+	// 优先保留关键词所在的句子
+	keywords := []string{
+		"方法", "步骤", "要点", "注意", "建议", "推荐", "解决", "答案",
+		"关键", "重要", "必须", "如何", "什么", "为什么", "怎样",
+	}
+
+	sentences := strings.Split(content, "。")
+	var importantSentences []string
+
+	for _, sentence := range sentences {
+		sentence = strings.TrimSpace(sentence)
+		if sentence == "" {
+			continue
+		}
+
+		sentenceLower := strings.ToLower(sentence)
+		hasKeyword := false
+
+		for _, keyword := range keywords {
+			if strings.Contains(sentenceLower, keyword) {
+				hasKeyword = true
+				break
+			}
+		}
+
+		if hasKeyword {
+			importantSentences = append(importantSentences, sentence)
+		}
+	}
+
+	var compressed string
+	if len(importantSentences) > 0 {
+		compressed = strings.Join(importantSentences, "。")
+	} else if len(sentences) > 0 {
+		compressed = sentences[0]
+	}
+
+	if len(compressed) > maxLength {
+		compressed = compressed[:maxLength] + "..."
+	}
+
+	return compressed
+}
+
+// compressOutputContent 对最终输出结果进行语义压缩
+func compressOutputContent(content string, maxLength int) string {
+	content = strings.TrimSpace(content)
+
+	if len(content) <= maxLength {
+		return content
+	}
+
+	// 提取JSON响应中的关键字段（如果是JSON格式）
+	var jsonData map[string]interface{}
+	if err := json.Unmarshal([]byte(content), &jsonData); err == nil {
+		// 优先提取response、message、result、answer等字段
+		for _, key := range []string{"response", "message", "result", "answer", "content", "text"} {
+			if val, ok := jsonData[key]; ok {
+				if strVal, ok := val.(string); ok {
+					return strVal
+				}
+			}
+		}
+	}
+
+	// 如果不是JSON或没有找到关键字段，进行文本压缩
+	lines := strings.Split(content, "\n")
+	var importantLines []string
+
+	importanceKeywords := []string{
+		"步骤", "建议", "推荐", "要点", "注意", "重要", "必须", "关键",
+		"解决", "答案", "结论", "总结",
+	}
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		isImportant := false
+		lineLower := strings.ToLower(line)
+
+		for _, keyword := range importanceKeywords {
+			if strings.Contains(lineLower, strings.ToLower(keyword)) {
+				isImportant = true
+				break
+			}
+		}
+
+		// 保留标题行
+		if strings.HasPrefix(line, "#") || strings.HasPrefix(line, "##") {
+			isImportant = true
+		}
+
+		if isImportant {
+			importantLines = append(importantLines, line)
+		}
+	}
+
+	var compressed string
+	if len(importantLines) > 0 {
+		compressed = strings.Join(importantLines, "\n")
+	} else {
+		// 使用前几行
+		for i := 0; i < len(lines) && i < 3; i++ {
+			if strings.TrimSpace(lines[i]) != "" {
+				importantLines = append(importantLines, lines[i])
+			}
+		}
+		compressed = strings.Join(importantLines, "\n")
+	}
+
+	if len(compressed) > maxLength {
+		truncated := compressed[:maxLength]
+		lastDot := strings.LastIndex(truncated, "。")
+		if lastDot > maxLength/2 {
+			compressed = compressed[:lastDot] + "。"
+		} else {
+			compressed = truncated + "..."
+		}
+	}
+
+	return compressed
 }
 
 // getDocumentsList 获取文档列表

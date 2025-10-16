@@ -7,11 +7,17 @@ import (
 	"seventhcenturyvideogroup/backend/go-echo-sqlite/routes"
 	"seventhcenturyvideogroup/backend/go-echo-sqlite/services"
 
+	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
 
 func main() {
+	// 加载.env文件（如果存在）
+	if err := godotenv.Load(".env"); err != nil {
+		log.Println("警告: 无法加载.env文件，将使用环境变量或默认配置")
+	}
+
 	e := echo.New()
 
 	// 中间件配置
