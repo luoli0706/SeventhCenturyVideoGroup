@@ -15,6 +15,7 @@ import (
 	"seventhcenturyvideogroup/backend/go-echo-sqlite/models"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -70,10 +71,15 @@ type DeepSeekEmbeddingUsage struct {
 }
 
 type RAGService struct {
-	apiKey     string
-	httpClient *http.Client
-	apiBase    string
-	model      string
+	apiKey          string
+	httpClient      *http.Client
+	apiBase         string
+	model           string
+	documentMutex   sync.RWMutex      // 用于保护文档访问
+	lastUpdateTime  time.Time         // 上次更新时间
+	documentHashMap map[string]string // 文件路径 -> 哈希映射
+	stopChan        chan bool         // 文件监控停止信号
+	isMonitoring    bool              // 是否正在监控
 }
 
 func NewRAGService() *RAGService {
@@ -93,10 +99,13 @@ func NewRAGService() *RAGService {
 	}
 
 	return &RAGService{
-		apiKey:     apiKey,
-		apiBase:    apiBase,
-		model:      model,
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+		apiKey:          apiKey,
+		apiBase:         apiBase,
+		model:           model,
+		httpClient:      &http.Client{Timeout: 30 * time.Second},
+		documentHashMap: make(map[string]string),
+		stopChan:        make(chan bool),
+		lastUpdateTime:  time.Now(),
 	}
 }
 
@@ -211,7 +220,7 @@ func (r *RAGService) processMarkdownFile(filePath string) error {
 		}
 	}
 
-	fmt.Printf("已处理文档: %s (分块数: %d)\n", title, len(chunks))
+	fmt.Printf("✓ 已处理文档: %s (分块数: %d, ID: %d)\n", title, len(chunks), doc.ID)
 	return nil
 }
 
@@ -415,10 +424,16 @@ func (r *RAGService) splitByLength(text string, maxLength int) []string {
 	return chunks
 }
 
-// generateEmbedding 调用Deepseek API生成文本向量
+// generateEmbedding 调用Deepseek API生成文本向量，失败时使用本地特征向量
 func (r *RAGService) generateEmbedding(text string) ([]float64, error) {
 	// 压缩输入文本
 	compressedText := r.compressSemanticContent(text, 100)
+
+	// 如果API密钥未设置，使用本地回退机制
+	if r.apiKey == "" {
+		fmt.Println("警告: Deepseek API密钥未设置，使用本地特征向量")
+		return r.generateLocalEmbedding(text), nil
+	}
 
 	// 构建请求
 	request := DeepSeekEmbeddingRequest{
@@ -429,14 +444,16 @@ func (r *RAGService) generateEmbedding(text string) ([]float64, error) {
 
 	jsonData, err := json.Marshal(request)
 	if err != nil {
-		return nil, fmt.Errorf("构建请求失败: %v", err)
+		fmt.Printf("构建Embedding请求失败: %v，使用本地回退\n", err)
+		return r.generateLocalEmbedding(text), nil
 	}
 
 	// 发送请求到Deepseek API
 	url := fmt.Sprintf("%s/v1/embeddings", r.apiBase)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return nil, fmt.Errorf("创建请求失败: %v", err)
+		fmt.Printf("创建Embedding请求失败: %v，使用本地回退\n", err)
+		return r.generateLocalEmbedding(text), nil
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -444,30 +461,104 @@ func (r *RAGService) generateEmbedding(text string) ([]float64, error) {
 
 	resp, err := r.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("API请求失败: %v", err)
+		fmt.Printf("Embedding API请求失败: %v，使用本地回退\n", err)
+		return r.generateLocalEmbedding(text), nil
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("读取响应失败: %v", err)
+		fmt.Printf("读取Embedding响应失败: %v，使用本地回退\n", err)
+		return r.generateLocalEmbedding(text), nil
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API返回错误状态码 %d: %s", resp.StatusCode, string(body))
+		fmt.Printf("Embedding API返回错误状态码 %d: %s，使用本地回退\n", resp.StatusCode, string(body))
+		return r.generateLocalEmbedding(text), nil
 	}
 
 	// 解析响应
 	var response DeepSeekEmbeddingResponse
 	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("解析响应失败: %v", err)
+		fmt.Printf("解析Embedding响应失败: %v，使用本地回退\n", err)
+		return r.generateLocalEmbedding(text), nil
 	}
 
 	if len(response.Data) == 0 {
-		return nil, fmt.Errorf("响应中没有嵌入数据")
+		fmt.Println("Embedding响应中没有数据，使用本地回退")
+		return r.generateLocalEmbedding(text), nil
 	}
 
 	return response.Data[0].Embedding, nil
+}
+
+// generateLocalEmbedding 生成本地特征向量（回退方案）
+func (r *RAGService) generateLocalEmbedding(text string) []float64 {
+	// 清理文本
+	text = strings.ToLower(strings.TrimSpace(text))
+	words := strings.Fields(text)
+
+	// 创建固定长度的向量（1024维，与Deepseek保持一致）
+	vectorSize := 1024
+	vector := make([]float64, vectorSize)
+
+	// 基于文本内容生成特征向量
+	if len(words) == 0 {
+		return vector
+	}
+
+	// 1. 文本长度特征
+	vector[0] = float64(len(text)) / 1000.0 // 归一化
+	vector[1] = float64(len(words)) / 100.0
+
+	// 2. 关键词特征
+	keywords := []string{
+		"mad", "mmd", "视频", "剪辑", "制作", "教程", "软件", "特效",
+		"模型", "动画", "音乐", "素材", "创作", "学习", "技术", "工具",
+		"社团", "成员", "活动", "比赛", "项目", "培训", "指导", "问题",
+	}
+
+	for i, keyword := range keywords {
+		if i+2 < vectorSize && strings.Contains(text, keyword) {
+			vector[i+2] = 1.0
+		}
+	}
+
+	// 3. 字符频率特征
+	charCount := make(map[rune]int)
+	for _, char := range text {
+		charCount[char]++
+	}
+
+	// 选择一些常见字符作为特征
+	commonChars := []rune{'的', '是', '和', '在', '有', '用', '要', '可', '以', '会'}
+	for i, char := range commonChars {
+		if i+50 < vectorSize {
+			if count, exists := charCount[char]; exists {
+				vector[i+50] = float64(count) / float64(len(text))
+			}
+		}
+	}
+
+	// 4. 文本结构特征
+	if strings.Contains(text, "#") {
+		vector[100] = 1.0 // 包含标题
+	}
+	if strings.Contains(text, "```") {
+		vector[101] = 1.0 // 包含代码
+	}
+	if strings.Contains(text, "http") {
+		vector[102] = 1.0 // 包含链接
+	}
+
+	// 5. 基于文本内容的特征哈希
+	for i := 200; i < vectorSize; i++ {
+		if i < len(text) {
+			vector[i] = float64(text[i%len(text)]) / 255.0
+		}
+	}
+
+	return vector
 }
 
 // SearchSimilarChunks 搜索相似的文档块
@@ -475,6 +566,7 @@ func (r *RAGService) SearchSimilarChunks(query string, topK int, category string
 	// 生成查询向量
 	queryEmbedding, err := r.generateEmbedding(query)
 	if err != nil {
+		// 由于generateEmbedding现在总是成功的（使用回退机制），这里不应该发生
 		return nil, err
 	}
 
@@ -498,7 +590,9 @@ func (r *RAGService) SearchSimilarChunks(query string, topK int, category string
 	for _, chunk := range chunks {
 		var chunkEmbedding []float64
 		if err := json.Unmarshal([]byte(chunk.Embedding), &chunkEmbedding); err != nil {
-			continue
+			// 如果旧的向量无法解析，重新生成
+			newEmbedding, _ := r.generateEmbedding(chunk.Content)
+			chunkEmbedding = newEmbedding
 		}
 
 		similarity := r.cosineSimilarity(queryEmbedding, chunkEmbedding)
@@ -685,6 +779,176 @@ func (r *RAGService) compressOutput(output string, maxLength int) string {
 	return compressed
 }
 
+// RefreshDocuments 手动刷新知识库（热更新）
+func (r *RAGService) RefreshDocuments() error {
+	fmt.Println("\n========== 开始知识库热更新 ==========")
+
+	startTime := time.Now()
+
+	// 获取当前工作目录
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	// 构建AI-data-source路径
+	var dataSourcePath string
+	if strings.Contains(wd, "go-echo-sqlite") {
+		dataSourcePath = filepath.Join("..", "AI-data-source")
+	} else {
+		dataSourcePath = filepath.Join("AI-data-source")
+	}
+
+	// 转换为绝对路径
+	dataSourcePath, err = filepath.Abs(dataSourcePath)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("正在扫描: %s\n", dataSourcePath)
+
+	// 遍历目录，检查文件变化
+	var updatedCount = 0
+	err = filepath.Walk(dataSourcePath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if filepath.Ext(path) == ".md" {
+			// 计算文件哈希
+			content, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+
+			hash := r.calculateHash(string(content))
+			oldHash, exists := r.documentHashMap[path]
+
+			// 如果文件是新的或已修改，处理它
+			if !exists || oldHash != hash {
+				fmt.Printf("  📝 检测到文件变化: %s\n", filepath.Base(path))
+				if err := r.processMarkdownFile(path); err != nil {
+					fmt.Printf("  ✗ 处理失败: %v\n", err)
+					return err
+				}
+				r.documentHashMap[path] = hash
+				updatedCount++
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		fmt.Printf("✗ 知识库热更新失败: %v\n", err)
+		return err
+	}
+
+	r.lastUpdateTime = time.Now()
+
+	fmt.Printf("✓ 知识库热更新完成 (更新: %d 个文件, 耗时: %.2fs)\n", updatedCount, time.Since(startTime).Seconds())
+	fmt.Println("==========================================\n")
+
+	return nil
+}
+
+// GetUpdateStatus 获取知识库更新状态
+func (r *RAGService) GetUpdateStatus() map[string]interface{} {
+	db := config.GetDB()
+
+	var docCount int64
+	db.Model(&models.Document{}).Count(&docCount)
+
+	var chunkCount int64
+	db.Model(&models.DocumentChunk{}).Count(&chunkCount)
+
+	return map[string]interface{}{
+		"last_update_time": r.lastUpdateTime,
+		"documents_count":  docCount,
+		"chunks_count":     chunkCount,
+		"is_monitoring":    r.isMonitoring,
+	}
+}
+
+// SyncMembersToMarkdown 将数据库中的成员信息同步到markdown文件
+func (r *RAGService) SyncMembersToMarkdown() error {
+	db := config.GetDB()
+
+	// 获取所有成员信息
+	var members []models.ClubMember
+	if err := db.Find(&members).Error; err != nil {
+		return fmt.Errorf("获取成员信息失败: %v", err)
+	}
+
+	// 生成markdown内容
+	var content strings.Builder
+	content.WriteString("---\n")
+	content.WriteString("title: 柒世纪视频组成员信息\n")
+	content.WriteString("role: 社团成员信息库\n")
+	content.WriteString("club: 柒世纪视频组\n")
+	content.WriteString("language: zh-CN\n")
+	content.WriteString("last_updated: " + time.Now().Format("2006-01-02 15:04:05") + "\n")
+	content.WriteString("---\n\n")
+
+	content.WriteString("# 柒世纪视频组成员信息库\n\n")
+	content.WriteString("本文档记录了柒世纪视频组所有活跃成员的基本信息，用于AI助手快速了解成员背景。\n\n")
+
+	content.WriteString("## 成员总数\n\n")
+	content.WriteString(fmt.Sprintf("- 总计: %d 名成员\n", len(members)))
+	content.WriteString("- 更新时间: " + time.Now().Format("2006-01-02 15:04:05") + "\n\n")
+
+	content.WriteString("## 成员详细信息\n\n")
+
+	// 按入社时间排序
+	for i, member := range members {
+		content.WriteString(fmt.Sprintf("### %d. %s\n\n", i+1, member.CN))
+		content.WriteString(fmt.Sprintf("**性别**: %s\n\n", member.Sex))
+		content.WriteString(fmt.Sprintf("**年级**: %s\n\n", member.Year))
+		content.WriteString(fmt.Sprintf("**方向**: %s\n\n", member.Direction))
+		content.WriteString(fmt.Sprintf("**职位**: %s\n\n", member.Position))
+		content.WriteString(fmt.Sprintf("**状态**: %s\n\n", member.Status))
+
+		if member.Remark != "" {
+			content.WriteString(fmt.Sprintf("**备注**: %s\n\n", member.Remark))
+		}
+
+		content.WriteString("---\n\n")
+	}
+
+	// 获取数据源路径
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	var dataSourcePath string
+	if strings.Contains(wd, "go-echo-sqlite") {
+		dataSourcePath = filepath.Join("..", "AI-data-source", "社团成员信息.md")
+	} else {
+		dataSourcePath = filepath.Join("AI-data-source", "社团成员信息.md")
+	}
+
+	dataSourcePath, err = filepath.Abs(dataSourcePath)
+	if err != nil {
+		return err
+	}
+
+	// 写入文件
+	if err := os.WriteFile(dataSourcePath, []byte(content.String()), 0644); err != nil {
+		return fmt.Errorf("写入成员信息文件失败: %v", err)
+	}
+
+	fmt.Printf("✓ 已同步成员信息到: %s (%d 个成员)\n", dataSourcePath, len(members))
+
+	// 触发知识库重新加载
+	if err := r.RefreshDocuments(); err != nil {
+		fmt.Printf("⚠ 成员信息已更新，但知识库重新加载失败: %v\n", err)
+		// 不返回错误，因为文件已经成功写入
+	}
+
+	return nil
+}
+
 // EnhanceQuery 使用检索到的上下文增强查询
 func (r *RAGService) EnhanceQuery(originalQuery string, relevantChunks []models.DocumentChunkResult) string {
 	if len(relevantChunks) == 0 {
@@ -706,7 +970,16 @@ func (r *RAGService) EnhanceQuery(originalQuery string, relevantChunks []models.
 	contextBuilder.WriteString("2. 结合相关资料给出具体建议\n")
 	contextBuilder.WriteString("3. 如果是MAD或MMD相关问题，要明确区分并使用对应模块信息\n")
 	contextBuilder.WriteString("4. 提供实用的步骤或建议\n")
-	contextBuilder.WriteString("5. 鼓励用户继续学习和创作\n")
+	contextBuilder.WriteString("5. 鼓励用户继续学习和创作\n\n")
+
+	// 添加语义压缩提示词
+	contextBuilder.WriteString("【输出优化要求 - 语义压缩】\n")
+	contextBuilder.WriteString("请在回答时进行适度的语义压缩以优化输出长度：\n")
+	contextBuilder.WriteString("- 移除冗余和重复表述，但保留所有关键信息\n")
+	contextBuilder.WriteString("- 合并相似的步骤或建议，使用更简洁的表达\n")
+	contextBuilder.WriteString("- 使用列表、序号、代码块等格式提高可读性\n")
+	contextBuilder.WriteString("- 必须保留所有重要警告、版权提醒和注意事项\n")
+	contextBuilder.WriteString("- 目标：将内容压缩到原文本的 70-85% 长度\n")
 
 	return contextBuilder.String()
 }

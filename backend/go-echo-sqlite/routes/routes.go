@@ -32,9 +32,12 @@ func InitRoutes(e *echo.Echo) {
 	api.GET("/member-profile/:cn/exists", controllers.CheckMemberProfileExists)
 
 	// RAG AI助手相关路由
-	api.POST("/rag/initialize", controllers.InitializeRAG) // 初始化RAG系统
-	api.POST("/rag/query", controllers.QueryRAG)           // RAG查询（仅检索）
-	api.POST("/rag/chat", controllers.QueryRAGWithN8N)     // RAG聊天（检索+n8n）
-	api.GET("/rag/documents", controllers.GetDocuments)    // 获取文档列表
-	api.GET("/rag/faqs", controllers.GetFAQs)              // 获取FAQ列表
+	api.POST("/rag/initialize", controllers.InitializeRAG)     // 初始化RAG系统
+	api.POST("/rag/refresh", controllers.RefreshDocuments)     // 热更新知识库
+	api.POST("/rag/sync-members", controllers.SyncMembers)     // 同步成员信息到知识库
+	api.GET("/rag/status", controllers.GetKnowledgeBaseStatus) // 获取知识库状态
+	api.POST("/rag/query", controllers.QueryRAG)               // RAG查询（仅检索）
+	api.POST("/rag/chat", controllers.QueryRAGWithN8N)         // RAG聊天（检索+n8n）
+	api.GET("/rag/documents", controllers.GetDocuments)        // 获取文档列表
+	api.GET("/rag/faqs", controllers.GetFAQs)                  // 获取FAQ列表
 }

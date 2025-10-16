@@ -44,20 +44,44 @@
 
           <!-- 聊天消息 -->
           <div v-for="message in messages" :key="message.id" :class="['message', message.role]">
-            <div v-if="message.role === 'assistant'" class="avatar assistant-avatar">视</div>
-            <div class="message-content">
-              <div 
-                v-if="message.role === 'assistant'" 
-                class="message-text markdown-content"
-                v-html="renderMarkdown(message.content)"
-              ></div>
-              <div 
-                v-else 
-                class="message-text user-message"
-              >{{ message.content }}</div>
-              <div class="message-time">{{ formatTime(message.timestamp) }}</div>
+            <!-- 系统消息（参考资料提示） -->
+            <div v-if="message.role === 'system'" class="system-message">
+              <div class="system-content">
+                {{ message.content }}
+                <!-- 显示参考资料列表 -->
+                <div v-if="message.references && message.references.length > 0" class="references-list">
+                  <details>
+                    <summary>查看参考资料</summary>
+                    <div v-for="(ref, idx) in message.references" :key="idx" class="reference-item">
+                      <strong>{{ ref.title }}</strong>
+                      <p>{{ ref.content.substring(0, 150) }}...</p>
+                      <span class="similarity-badge">相似度: {{ (ref.similarity * 100).toFixed(0) }}%</span>
+                    </div>
+                  </details>
+                </div>
+              </div>
             </div>
-            <div v-if="message.role === 'user'" class="avatar user-avatar">{{ getUserInitial() }}</div>
+            
+            <!-- 助手消息 -->
+            <div v-else-if="message.role === 'assistant'">
+              <div class="avatar assistant-avatar">视</div>
+              <div class="message-content">
+                <div 
+                  class="message-text markdown-content"
+                  v-html="renderMarkdown(message.content)"
+                ></div>
+                <div class="message-time">{{ formatTime(message.timestamp) }}</div>
+              </div>
+            </div>
+            
+            <!-- 用户消息 -->
+            <div v-else-if="message.role === 'user'">
+              <div class="message-content">
+                <div class="message-text user-message">{{ message.content }}</div>
+                <div class="message-time">{{ formatTime(message.timestamp) }}</div>
+              </div>
+              <div class="avatar user-avatar">{{ getUserInitial() }}</div>
+            </div>
           </div>
 
           <!-- 加载状态 -->
@@ -270,7 +294,7 @@ const handleSend = async (event) => {
   isLoading.value = true
 
   try {
-    // 第一步：通过RAG API处理用户查询
+    // 通过RAG API处理用户查询，获得增强的查询和相关文档
     console.log('开始RAG处理...')
     const ragResponse = await fetch('/api/rag/query', {
       method: 'POST',
@@ -279,28 +303,61 @@ const handleSend = async (event) => {
       },
       body: JSON.stringify({
         query: message,
-        top_k: 3,
+        top_k: 5,
         category: '' // 可以根据需要设置类别过滤
       })
     })
 
-    let enhancedQuery = message // 默认使用原始查询
+    let enhancedQuery = message
+    let relevantChunks = []
     
     if (ragResponse.ok) {
       const ragData = await ragResponse.json()
       console.log('RAG处理结果:', ragData)
       
+      // 获取相关文档块
+      if (ragData.relevant_chunks && ragData.relevant_chunks.length > 0) {
+        relevantChunks = ragData.relevant_chunks
+        console.log('找到相关文档:', relevantChunks.length, '个')
+        
+        // 如果找到相关文档，添加参考资料提示消息
+        const referenceMessage = {
+          id: Date.now() + 0.5,
+          role: 'system',
+          content: `📚 已为您检索 ${relevantChunks.length} 条相关资料（相似度: ${(relevantChunks[0].similarity * 100).toFixed(0)}%）`,
+          references: relevantChunks.slice(0, 3), // 显示前3条
+          timestamp: new Date()
+        }
+        messages.value.push(referenceMessage)
+        await nextTick()
+        scrollToBottom()
+      }
+      
       // 使用RAG增强后的查询
       if (ragData.enhanced_query && ragData.enhanced_query.trim()) {
         enhancedQuery = ragData.enhanced_query
-        console.log('使用RAG增强查询:', enhancedQuery)
+        console.log('使用RAG增强查询（已包含相关文档）')
       }
     } else {
       console.warn('RAG处理失败，使用原始查询:', ragResponse.status)
     }
 
-    // 第二步：发送处理后的查询到n8n容器
+    // 发送处理后的查询到n8n容器
     console.log('发送到n8n...')
+    
+    // 构建压缩提示词
+    const compressionHint = `
+【输出优化要求】
+请在回答时进行适度的语义压缩：
+1. 移除冗余和重复表述，但保留所有关键信息
+2. 合并相似的步骤或建议
+3. 使用简洁的表达方式
+4. 保留所有重要警告、版权提醒和注意事项
+5. 目标：将内容压缩到原文本的 70-85% 长度`
+
+    // 将压缩提示加入到增强查询中
+    const queryWithCompression = enhancedQuery + '\n' + compressionHint
+    
     const apiUrl = import.meta.env.DEV 
       ? '/api/n8n/webhook/ai-chat'  // 开发环境：使用webhook-test
       : 'http://localhost:5678/webhook/ai-chat'  // 生产环境：使用webhook
@@ -314,10 +371,11 @@ const handleSend = async (event) => {
       body: JSON.stringify({
         sessionId: sessionId.value,
         cn: userInfo?.cn || 'unknown',
-        message: enhancedQuery, // 使用RAG增强后的查询
+        message: queryWithCompression, // 使用RAG增强查询 + 压缩提示
         originalMessage: message, // 保留原始用户消息用于记录
         model: selectedModel.value,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        relevantChunks: relevantChunks // 传递相关文档供后端使用
       })
     })
 
@@ -694,6 +752,75 @@ onMounted(() => {
   background: var(--color-primary-6);
   color: white;
   white-space: pre-wrap;
+}
+
+/* 系统消息样式 */
+.system-message {
+  width: 100%;
+  text-align: center;
+  margin: 16px 0;
+}
+
+.system-content {
+  display: inline-block;
+  background: var(--color-fill-2);
+  border-left: 3px solid var(--color-primary-6);
+  padding: 12px 16px;
+  border-radius: 8px;
+  color: var(--color-text-2);
+  font-size: 13px;
+  max-width: 100%;
+}
+
+.references-list {
+  margin-top: 8px;
+  text-align: left;
+}
+
+.references-list summary {
+  cursor: pointer;
+  color: var(--color-primary-6);
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.2s;
+  user-select: none;
+}
+
+.references-list summary:hover {
+  background: var(--color-fill-3);
+}
+
+.reference-item {
+  background: var(--color-bg-3);
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-top: 6px;
+  border-left: 2px solid var(--color-primary-6);
+  font-size: 12px;
+}
+
+.reference-item strong {
+  display: block;
+  color: var(--color-text-1);
+  margin-bottom: 4px;
+}
+
+.reference-item p {
+  margin: 4px 0;
+  color: var(--color-text-2);
+  line-height: 1.4;
+}
+
+.similarity-badge {
+  display: inline-block;
+  background: var(--color-primary-6);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 500;
+  margin-top: 4px;
 }
 
 /* Markdown样式 */

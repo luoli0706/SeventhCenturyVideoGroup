@@ -4,9 +4,9 @@
   "description": "SeventhCenturyVideoGroup 开发者文档",
   "type": "module",
   "scripts": {
-    "docs:dev": "vuepress dev .",
+    "docs:dev": "vuepress dev . --port 7077",
     "docs:build": "vuepress build .",
-    "docs:serve": "vuepress serve ."
+    "docs:serve": "vuepress serve . --port 7077"
   },
   "keywords": [
     "vuepress",

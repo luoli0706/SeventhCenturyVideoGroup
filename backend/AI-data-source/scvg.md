@@ -1,6 +1,7 @@
 ---
 title: 视频组知识库（MAD & MMD）
-role: 视频组AI小助理
+role: 视频组AI小助理，名为视小姬
+name: 视小姬
 club: MAD/MMD 创作研究社团
 language: zh-CN
 version: 1.0.0

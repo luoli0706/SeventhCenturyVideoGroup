@@ -42,6 +42,36 @@ func InitializeRAG(c echo.Context) error {
 	})
 }
 
+// RefreshDocuments 手动刷新知识库（热更新）
+func RefreshDocuments(c echo.Context) error {
+	startTime := time.Now()
+
+	err := ragService.RefreshDocuments()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"error":   "知识库热更新失败",
+			"details": err.Error(),
+		})
+	}
+
+	status := ragService.GetUpdateStatus()
+	status["processing_time"] = time.Since(startTime).Seconds()
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"message": "知识库热更新成功",
+		"status":  status,
+	})
+}
+
+// GetKnowledgeBaseStatus 获取知识库状态
+func GetKnowledgeBaseStatus(c echo.Context) error {
+	status := ragService.GetUpdateStatus()
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"status": status,
+	})
+}
+
 // QueryRAG 处理RAG查询请求
 func QueryRAG(c echo.Context) error {
 	startTime := time.Now()
@@ -234,19 +264,62 @@ func GetFAQs(c echo.Context) error {
 	})
 }
 
-// sendToN8N 发送增强查询到n8n
-func sendToN8N(enhancedQuery, originalQuery string, relevantChunks []models.DocumentChunkResult) (string, error) {
-	// 构建上下文字符串，对内容进行语义压缩
-	var contextBuilder bytes.Buffer
-	for i, chunk := range relevantChunks {
-		// 压缩块内容（最大500字符）
-		compressedContent := compressChunkContent(chunk.Content, 500)
-		contextBuilder.WriteString(fmt.Sprintf("【参考资料%d - %s】\n%s\n\n", i+1, chunk.Title, compressedContent))
+// SyncMembers 同步成员信息到知识库
+func SyncMembers(c echo.Context) error {
+	startTime := time.Now()
+
+	err := ragService.SyncMembersToMarkdown()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"error":   "同步成员信息失败",
+			"details": err.Error(),
+		})
 	}
 
-	// 构建n8n请求
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"message":         "成员信息已同步到知识库",
+		"processing_time": time.Since(startTime).Seconds(),
+	})
+}
+
+// GetRAGStatus 获取RAG系统状态
+func GetRAGStatus(c echo.Context) error {
+	status := ragService.GetUpdateStatus()
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"status": status,
+	})
+}
+
+// sendToN8N 发送增强查询到n8n
+func sendToN8N(enhancedQuery, originalQuery string, relevantChunks []models.DocumentChunkResult) (string, error) {
+	// 构建系统提示词 - 包含人设、语义压缩要求等
+	systemPrompt := buildSystemPrompt()
+
+	// 构建上下文字符串，对内容进行语义压缩
+	var contextBuilder bytes.Buffer
+	contextBuilder.WriteString("【检索到的相关知识库内容】\n\n")
+
+	if len(relevantChunks) > 0 {
+		for i, chunk := range relevantChunks {
+			// 压缩块内容（最大500字符）
+			compressedContent := compressChunkContent(chunk.Content, 500)
+			contextBuilder.WriteString(fmt.Sprintf("【参考资料%d - %s (相似度: %.2f)】\n%s\n\n",
+				i+1, chunk.Title, chunk.Similarity, compressedContent))
+		}
+	} else {
+		contextBuilder.WriteString("（无直接匹配的知识库内容，基于已知信息进行回答）\n\n")
+	}
+
+	// 构建最终的用户查询提示（包含原始查询和上下文）
+	userPrompt := fmt.Sprintf("原始用户问题：%s\n\n%s\n\n%s",
+		originalQuery,
+		contextBuilder.String(),
+		"请基于上述知识库内容回答问题。如果知识库内容不足以完整回答，请基于已知信息补充说明。")
+
+	// 构建n8n请求 - 包含系统提示、用户提示和原始信息
 	n8nRequest := models.N8NRequest{
-		Query:        enhancedQuery,
+		Query:        systemPrompt + "\n\n" + userPrompt, // 合并系统提示和用户提示
 		Context:      contextBuilder.String(),
 		UserQuestion: originalQuery,
 	}
@@ -290,7 +363,52 @@ func sendToN8N(enhancedQuery, originalQuery string, relevantChunks []models.Docu
 	return compressedResponse, nil
 }
 
-// compressChunkContent 对文档块内容进行语义压缩
+// buildSystemPrompt 构建系统提示词，包含人设和压缩要求
+func buildSystemPrompt() string {
+	prompt := `【系统提示】
+
+## 角色身份与人设
+你是柒世纪视频组（MAD/MMD 创作研究社团）的常驻AI小助理，昵称为"视小姬"。
+
+### 基本属性
+- **身份**：社团内的专业创作顾问，精通 MAD（MAD Movie/动画音乐视频）与 MMD（MikuMikuDance 3D动画）创作
+- **语气**：温暖专业、鼓励式教学，全程使用简体中文，必要时提供术语中英对照
+- **目标用户**：社团新成员或希望进阶的创作者
+- **目标**：帮助用户快速掌握创作技能，提供实用建议和资源支持
+
+### 回复原则
+1. **清晰分层**：使用标题/序号/代码块梳理流程；涉及软件操作时按步骤拆解
+2. **术语友好**：首次出现的专业概念需解释含义，必要时补充中英对照
+3. **合法合规**：提醒遵守版权政策，避免指导侵权内容
+4. **需求确认**：在建议前确认成员目标和方向（MAD 或 MMD），不混淆两线建议
+5. **鼓励学习**：鼓励用户记录练习日志，推荐社团培训和外部资源
+
+### 分工约束
+- 所有答复需先判断属于 MAD 线或 MMD 线
+- 仅使用对应模块的知识库信息
+- 不跨线混用建议（MAD相关问题只提供MAD方向建议，反之亦然）
+
+## 输出优化要求
+- **语义压缩**：在保持完整信息的前提下，适度压缩冗余表述
+  - 移除重复的解释
+  - 合并相似的步骤
+  - 保留所有关键信息和步骤
+  - 目标：控制在原文本的 70-80% 长度
+- **关键内容保留**：必须保留以下内容
+  - 所有操作步骤
+  - 重要警告和注意事项
+  - 版权合规性提醒
+  - 具体建议和推荐
+
+## 响应格式建议
+- 对于问题类：简洁回答 → 具体步骤 → 常见问题 → 延伸建议
+- 对于技术类：问题诊断 → 解决方案 → 预防建议
+- 对于学习类：学习路径 → 详细步骤 → 资源推荐
+
+现在请根据上述人设和要求回答用户的问题。`
+
+	return prompt
+} // compressChunkContent 对文档块内容进行语义压缩
 func compressChunkContent(content string, maxLength int) string {
 	content = strings.TrimSpace(content)
 

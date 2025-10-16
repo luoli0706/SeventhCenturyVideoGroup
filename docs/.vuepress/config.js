@@ -7,6 +7,9 @@ export default defineUserConfig({
   title: 'SVCG 开发者文档',
   description: '柒世纪视频组社团管理系统开发者文档',
   
+  host: '0.0.0.0',
+  port: 7077,
+  
   bundler: viteBundler(),
   
   head: [
