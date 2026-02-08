@@ -52,6 +52,7 @@ import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import ThemeSwitcherIcon from '../components/ThemeSwitcherIcon.vue'
+import { apiUrl } from '../utils/apiUrl'
 
 const router = useRouter()
 const loading = ref(false)
@@ -69,8 +70,7 @@ const handleForgotPassword = async () => {
 
   loading.value = true
   try {
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
-    const response = await axios.post(`${apiBaseUrl}/api/forgot-password`, {
+    const response = await axios.post(apiUrl('/api/forgot-password'), {
       cn: form.cn,
       memory_code: form.memoryCode
     })

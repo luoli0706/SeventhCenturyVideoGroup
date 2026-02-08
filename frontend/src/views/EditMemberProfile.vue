@@ -67,6 +67,7 @@ import { reactive, ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import axios from 'axios'
 import { auth } from '../utils/auth'
+import { apiUrl } from '../utils/apiUrl'
 
 const router = useRouter()
 const route = useRoute()
@@ -74,8 +75,11 @@ const memberName = ref('')
 const avatarFileList = ref([])
 const currentAvatarFile = ref(null) // 新增：存储当前选中的文件
 
-// 定义API基础URL
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
+const toAbsoluteUrl = (p) => {
+  if (!p) return ''
+  const cleaned = String(p).startsWith('/') ? String(p) : `/${p}`
+  return apiUrl(cleaned)
+}
 
 const form = reactive({
   biliUID: '',
@@ -121,7 +125,7 @@ async function handleSubmit() {
     }
     
     const res = await axios.post(
-      `${apiBaseUrl}/api/member-profile/${encodeURIComponent(memberName.value)}`,
+      apiUrl(`/api/member-profile/${encodeURIComponent(memberName.value)}`),
       formData,
       {
         headers: {
@@ -171,7 +175,7 @@ onMounted(() => {
 // 加载已有的个人主页数据
 async function loadExistingProfile() {
   try {
-    const res = await axios.get(`${apiBaseUrl}/api/member-profile/${encodeURIComponent(memberName.value)}`)
+    const res = await axios.get(apiUrl(`/api/member-profile/${encodeURIComponent(memberName.value)}`))
     const data = res.data
     
     form.biliUID = data.BiliUID || ''
@@ -185,7 +189,7 @@ async function loadExistingProfile() {
         uid: '-1',
         name: '当前头像',
         status: 'done',
-        url: `${apiBaseUrl}/${data.Avatar}`
+        url: toAbsoluteUrl(data.Avatar)
       }]
     }
   } catch (e) {

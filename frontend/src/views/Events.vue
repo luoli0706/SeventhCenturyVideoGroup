@@ -64,6 +64,7 @@ func CreateActivity(c echo.Context) error {
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
+import { apiUrl } from '../utils/apiUrl'
 
 const router = useRouter()
 function goBack() {
@@ -88,7 +89,7 @@ function formatDate(dateStr) {
 
 onMounted(async () => {
   try {
-    const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/activities`)
+    const res = await axios.get(apiUrl('/api/activities'))
     events.value = res.data
   } catch (e) {
     events.value = []

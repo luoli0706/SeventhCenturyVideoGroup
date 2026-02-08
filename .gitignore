@@ -140,3 +140,6 @@ ai-backend/chroma_db/
 
 # Local test scripts (do not track)
 ai-agent/test/
+
+# Local deploy artifacts (do not track)
+deploy/

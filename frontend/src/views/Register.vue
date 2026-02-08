@@ -79,6 +79,7 @@
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
+import { apiUrl } from '../utils/apiUrl'
 
 const router = useRouter()
 const loading = ref(false)
@@ -90,9 +91,6 @@ const form = reactive({
   password: '',
   confirmPassword: ''
 })
-
-// 定义API基础URL
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
 
 const handleRegister = async () => {
   // 表单验证
@@ -114,7 +112,7 @@ const handleRegister = async () => {
   loading.value = true
   
   try {
-    await axios.post(`${apiBaseUrl}/api/register`, {
+    await axios.post(apiUrl('/api/register'), {
       cn: form.cn,
       password: form.password
     })
@@ -225,7 +223,7 @@ function goBack() {
 
 async function handleSubmit() {
   try {
-    await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/club_members`, {
+    await axios.post(apiUrl('/api/club_members'), {
       CN: form.cn,
       Sex: form.gender,
       Position: form.position,

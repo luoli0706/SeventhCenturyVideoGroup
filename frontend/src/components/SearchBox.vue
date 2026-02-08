@@ -21,6 +21,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
+import { apiUrl } from '../utils/apiUrl'
 
 const router = useRouter()
 const selectedRoute = ref('')
@@ -40,7 +41,7 @@ const routeOptions = ref([
 // 加载成员列表到搜索选项
 onMounted(async () => {
   try {
-    const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/club_members`)
+    const res = await axios.get(apiUrl('/api/club_members'))
     const memberOptions = res.data.map(member => ({
       label: `${member.CN} (${member.Direction})`,
       value: `/member/${encodeURIComponent(member.CN)}`
