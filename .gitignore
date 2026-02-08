@@ -137,3 +137,6 @@ env/
 
 # ai-backend generated artifacts
 ai-backend/chroma_db/
+
+# Local test scripts (do not track)
+ai-agent/test/
