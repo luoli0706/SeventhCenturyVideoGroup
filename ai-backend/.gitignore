@@ -1,0 +1,15 @@
+# Local virtual environment
+.venv/
+
+# Python caches
+__pycache__/
+*.py[cod]
+
+# Generated vector store
+chroma_db/
+
+# Local env (keep *.example tracked)
+.env
+.env.*
+!.env.example
+!.env.*.example

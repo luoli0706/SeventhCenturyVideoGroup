@@ -342,8 +342,8 @@ const handleSend = async (event) => {
       console.warn('RAG处理失败，使用原始查询:', ragResponse.status)
     }
 
-    // 发送处理后的查询到n8n容器
-    console.log('发送到n8n...')
+    // 发送处理后的查询到新的AI链路（Python LangChain）
+    console.log('发送到AI后端...')
     
     // 构建压缩提示词
     const compressionHint = `
@@ -358,9 +358,7 @@ const handleSend = async (event) => {
     // 将压缩提示加入到增强查询中
     const queryWithCompression = enhancedQuery + '\n' + compressionHint
     
-    const apiUrl = import.meta.env.DEV 
-      ? '/api/n8n/webhook/ai-chat'  // 开发环境：使用webhook-test
-      : 'http://localhost:5678/webhook/ai-chat'  // 生产环境：使用webhook
+    const apiUrl = '/api/rag/chat/stream'
       
     const response = await fetch(apiUrl, {
       method: 'POST',
