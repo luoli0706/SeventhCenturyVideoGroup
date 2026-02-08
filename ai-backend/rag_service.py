@@ -5,20 +5,19 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 
 from dotenv import load_dotenv
-from langchain_community.document_loaders import DirectoryLoader, TextLoader, UnstructuredMarkdownLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter, MarkdownHeaderTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_chroma import Chroma
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.documents import Document
 from sqlalchemy import create_engine, text
 import requests
 
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
 # Load environment variables (prefer ai-backend/.env)
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
+# Use override=True so local .env reliably takes effect.
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"), override=True)
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"), override=False)
 
 class RAGService:
     def __init__(self):
@@ -40,19 +39,13 @@ class RAGService:
         # Hot-update bookkeeping
         self._last_file_state: dict[str, tuple[float, int]] = {}
         self._last_refresh_check: float = 0.0
+
+        # In-memory retrieval index (TF-IDF)
+        self._vectorizer: Optional[TfidfVectorizer] = None
+        self._tfidf_matrix = None
+        self._chunks: list[dict[str, Any]] = []
         
-        # Initialize Embeddings (Local)
-        # Using a small, fast model for CPU
-        self.embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-        
-        # Initialize Vector Store
-        self.vector_store = Chroma(
-            persist_directory=self.chroma_path,
-            embedding_function=self.embeddings,
-            collection_name="scvg_knowledge_base"
-        )
-        
-        # Initialize LLM
+        # Initialize LLM (DeepSeek/OpenAI-compatible)
         if self.api_key:
             self.llm = ChatOpenAI(
                 model=self.model_name,
@@ -64,81 +57,78 @@ class RAGService:
             print("Warning: DEEPSEEK_API_KEY not found. Chat functionality will be limited.")
             self.llm = None
 
+        # Build index lazily on first request; this keeps startup fast.
+
     def load_documents(self):
-        """Load and process all markdown files from data source."""
+        """Load and index all markdown files from data source.
+
+        Uses a lightweight TF-IDF + cosine similarity index to avoid
+        chromadb/pydantic-v1 issues on Python 3.14.
+        """
         print("Loading documents...")
         
         if not os.path.exists(self.data_source_path):
             os.makedirs(self.data_source_path, exist_ok=True)
             return {"status": "warning", "message": "Data source directory created but empty."}
 
-        # Find all MD files
         md_files = glob.glob(os.path.join(self.data_source_path, "**/*.md"), recursive=True)
         print(f"Found {len(md_files)} markdown files.")
-        
-        documents = []
+
+        chunks: list[dict[str, Any]] = []
+
+        def split_text(text_content: str, chunk_size: int = 1000, overlap: int = 200) -> list[str]:
+            text_content = text_content.replace("\r\n", "\n")
+            text_content = text_content.strip()
+            if not text_content:
+                return []
+
+            parts: list[str] = []
+            start = 0
+            while start < len(text_content):
+                end = min(len(text_content), start + chunk_size)
+                parts.append(text_content[start:end].strip())
+                if end == len(text_content):
+                    break
+                start = max(0, end - overlap)
+            return [p for p in parts if p]
+
         for file_path in md_files:
             try:
-                # Using TextLoader as it's more robust for simple MD
-                loader = TextLoader(file_path, encoding='utf-8')
-                docs = loader.load()
-                # Add metadata
-                for doc in docs:
-                    doc.metadata["source"] = file_path
-                    doc.metadata["filename"] = os.path.basename(file_path)
-                documents.extend(docs)
+                with open(file_path, "r", encoding="utf-8") as f:
+                    raw = f.read()
             except Exception as e:
                 print(f"Error loading {file_path}: {e}")
+                continue
 
-        if not documents:
+            filename = os.path.basename(file_path)
+            for part in split_text(raw):
+                chunks.append(
+                    {
+                        "content": part,
+                        "metadata": {"source": file_path, "filename": filename},
+                    }
+                )
+
+        if not chunks:
+            self._chunks = []
+            self._vectorizer = None
+            self._tfidf_matrix = None
             return {"status": "warning", "message": "No documents found."}
 
-        # Text Splitting
-        # 1. Split by headers (Markdown specific)
-        headers_to_split_on = [
-            ("#", "Header 1"),
-            ("##", "Header 2"),
-            ("###", "Header 3"),
-        ]
-        markdown_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers_to_split_on)
-        
-        md_header_splits = []
-        for doc in documents:
-            splits = markdown_splitter.split_text(doc.page_content)
-            for split in splits:
-                split.metadata.update(doc.metadata)
-                md_header_splits.append(split)
-
-        # 2. Recursive Character Split
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200
+        texts = [c["content"] for c in chunks]
+        vectorizer = TfidfVectorizer(
+            max_features=50000,
+            ngram_range=(1, 2),
+            stop_words=None,
         )
-        splits = text_splitter.split_documents(md_header_splits)
-        
-        print(f"Generated {len(splits)} chunks.")
-        
-        # Re-initialize vector store (clear old data)
-        # Note: Chroma reset is a bit tricky, often better to delete directory or use reset()
-        # For simplicity here, we add and allow duplicates or we could delete the collection
-        try:
-            self.vector_store.delete_collection() # Clear existing
-            self.vector_store = Chroma(
-                persist_directory=self.chroma_path,
-                embedding_function=self.embeddings,
-                collection_name="scvg_knowledge_base"
-            )
-        except Exception as e:
-            print(f"Error clearing collection: {e}")
+        matrix = vectorizer.fit_transform(texts)
 
-        # Batch add documents
-        batch_size = 100
-        for i in range(0, len(splits), batch_size):
-            batch = splits[i:i+batch_size]
-            self.vector_store.add_documents(batch)
-            print(f"Indexed batch {i//batch_size + 1}/{(len(splits)-1)//batch_size + 1}")
+        self._chunks = chunks
+        self._vectorizer = vectorizer
+        self._tfidf_matrix = matrix
 
-        return {"status": "success", "message": f"Indexed {len(splits)} chunks from {len(documents)} files."}
+        print(f"Indexed {len(chunks)} chunks (TF-IDF).")
+        return {"status": "success", "message": f"Indexed {len(chunks)} chunks from {len(md_files)} files."}
 
     def _compute_file_state(self) -> dict[str, tuple[float, int]]:
         state: dict[str, tuple[float, int]] = {}
@@ -185,36 +175,54 @@ class RAGService:
             self.load_documents()
 
     def get_status(self):
-        # Count documents in vector store
-        try:
-            count = self.vector_store._collection.count()
-            return {
-                "status": "active",
-                "backend": "python-langchain",
-                "chunk_count": count,
-                "model": self.model_name
-            }
-        except Exception as e:
-            return {"status": "error", "error": str(e)}
+        return {
+            "status": "active",
+            "backend": "python-tfidf",
+            "chunk_count": len(self._chunks),
+            "model": self.model_name,
+        }
 
     def query(self, query: str, top_k: int = 3):
-        results = self.vector_store.similarity_search_with_score(query, k=top_k)
-        processed_results = []
-        for doc, score in results:
-            processed_results.append({
-                "content": doc.page_content,
-                "metadata": doc.metadata,
-                "score": float(score) # Chroma returns distance usually, check metric
-            })
-        return processed_results
+        if not query:
+            return []
+
+        # Hot update / lazy load
+        self.refresh_if_needed()
+        if not self._vectorizer or self._tfidf_matrix is None or not self._chunks:
+            self.load_documents()
+        if not self._vectorizer or self._tfidf_matrix is None or not self._chunks:
+            return []
+
+        q = self._vectorizer.transform([query])
+        sims = cosine_similarity(q, self._tfidf_matrix).flatten()
+
+        k = max(1, int(top_k or 3))
+        top_indices = sims.argsort()[::-1][:k]
+
+        results: list[dict[str, Any]] = []
+        for idx in top_indices:
+            chunk = self._chunks[int(idx)]
+            results.append(
+                {
+                    "content": chunk["content"],
+                    "metadata": chunk.get("metadata", {}),
+                    "score": float(sims[int(idx)]),
+                }
+            )
+        return results
 
     def chat(self, message: str, history: List[dict] = None):
         if not self.llm:
             return {"reply": "Error: LLM not configured (missing API Key).", "sources": []}
 
         # Retrieve context
-        docs = self.vector_store.similarity_search(message, k=4)
-        context_text = "\n\n".join([f"Source: {doc.metadata.get('filename', 'unknown')}\nContent: {doc.page_content}" for doc in docs])
+        results = self.query(message, top_k=4)
+        context_text = "\n\n".join(
+            [
+                f"Source: {(r.get('metadata') or {}).get('filename', 'unknown')}\nContent: {r.get('content', '')}"
+                for r in results
+            ]
+        )
         
         # Construct Prompt
         system_template = """你是一个专业的视频社团AI助手（柒世纪视频组）。
@@ -236,7 +244,7 @@ class RAGService:
             response = chain.invoke({"context": context_text, "question": message})
             return {
                 "reply": response,
-                "sources": [doc.metadata.get('filename') for doc in docs]
+                "sources": [(r.get("metadata") or {}).get("filename") for r in results]
             }
         except Exception as e:
             return {"error": str(e)}
@@ -254,16 +262,13 @@ class RAGService:
                 members = result.mappings().all()
                 
             # Generate Markdown
-            content = "---
-"
+            content = "---\n"
             content += "title: 柒世纪视频组成员信息\n"
             content += "role: 社团成员信息库\n"
             content += "club: 柒世纪视频组\n"
             content += "language: zh-CN\n"
             content += f"last_updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-            content += "---
-
-"
+            content += "---\n\n"
             content += "# 柒世纪视频组成员信息库\n\n"
             content += "本文档记录了柒世纪视频组所有活跃成员的基本信息，用于AI助手快速了解成员背景。\n\n"
             content += f"- 总计: {len(members)} 名成员\n"
@@ -299,9 +304,7 @@ class RAGService:
                 content += f"**状态**: {status}\n\n"
                 if remark and remark != "未知":
                     content += f"**备注**: {remark}\n\n"
-                content += "---
-
-"
+                content += "---\n"
 
             # Write to file
             target_file = os.path.join(self.data_source_path, "社团成员信息.md")

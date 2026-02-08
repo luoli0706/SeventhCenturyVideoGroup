@@ -61,6 +61,8 @@ async def stream_assistant_reply(
     api_base = rag.api_base or os.getenv("DEEPSEEK_API_BASE", "https://api.deepseek.com")
     model_name = model or rag.model_name or os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
 
+    print(f"DeepSeek target: base={api_base} model={model_name} key_set={bool(api_key)}")
+
     llm = ChatOpenAI(
         model=model_name,
         openai_api_key=api_key,
