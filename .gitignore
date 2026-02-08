@@ -81,10 +81,11 @@ jspm_packages/
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variables file
+# dotenv environment variables files
 .env
-.env.test
-.env.production
+.env.*
+!.env.example
+!.env.*.example
 
 # Temporary files
 tmp/
