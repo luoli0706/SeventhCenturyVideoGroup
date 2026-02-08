@@ -107,8 +107,8 @@
               placeholder="选择模型"
               class="model-selector"
             >
-              <a-option value="deepseek-v3">DeepSeek-V3</a-option>
-              <a-option value="deepseek-r1">DeepSeek-R1</a-option>
+              <a-option value="deepseek-chat">DeepSeek-V3</a-option>
+              <a-option value="deepseek-reasoner">DeepSeek-R1</a-option>
               <a-option value="gemini-2.5-pro" disabled class="disabled-option">
                 Gemini 2.5 Pro (开发中)
               </a-option>
@@ -166,7 +166,8 @@ const isDark = ref(false)
 const messages = ref([])
 const inputMessage = ref('')
 const isLoading = ref(false)
-const selectedModel = ref('deepseek-v3')
+// Use DeepSeek OpenAI-compatible model ids.
+const selectedModel = ref('deepseek-chat')
 const messagesArea = ref(null)
 const sessionId = ref('')
 
@@ -468,13 +469,13 @@ const handleSend = async (event) => {
     
     // 根据错误类型提供更具体的错误信息
     if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      errorContent = '无法连接到AI服务，请检查n8n服务是否正在运行。'
+      errorContent = '无法连接到AI服务，请检查 Python AI 后端是否正在运行。'
     } else if (error.message.includes('CORS')) {
-      errorContent = 'CORS跨域错误，请检查n8n webhook配置。'
+      errorContent = 'CORS跨域错误，请检查前端代理/后端 CORS 配置。'
     } else if (error.message.includes('500')) {
       errorContent = 'AI服务内部错误，请稍后再试或联系管理员。'
     } else if (error.message.includes('404')) {
-      errorContent = 'AI服务端点未找到，请检查webhook配置。'
+      errorContent = 'AI服务端点未找到，请检查接口路径与代理配置。'
     } else if (error.message.includes('JSON')) {
       errorContent = '数据格式解析错误，AI服务可能正在处理中，请稍后再试。'
     }

@@ -116,10 +116,13 @@ class RAGService:
             return {"status": "warning", "message": "No documents found."}
 
         texts = [c["content"] for c in chunks]
+        # NOTE: For Chinese text (no whitespace tokenization), default word-based
+        # tokenization often yields near-zero similarities. Character n-grams are
+        # a robust lightweight alternative.
         vectorizer = TfidfVectorizer(
-            max_features=50000,
-            ngram_range=(1, 2),
-            stop_words=None,
+            analyzer="char",
+            ngram_range=(2, 4),
+            max_features=80000,
         )
         matrix = vectorizer.fit_transform(texts)
 

@@ -12,6 +12,26 @@ from chain.prompt_loader import load_prompts
 from rag_service import RAGService
 
 
+def _normalize_model_name(model_name: Optional[str]) -> Optional[str]:
+    """Map frontend-friendly model labels to DeepSeek/OpenAI-compatible ids."""
+
+    if not model_name:
+        return None
+
+    raw = model_name.strip()
+    if not raw:
+        return None
+
+    key = raw.lower()
+    # Frontend currently uses marketing-like names; DeepSeek OpenAI-compatible API
+    # expects concrete model ids.
+    mapping = {
+        "deepseek-v3": "deepseek-chat",
+        "deepseek-r1": "deepseek-reasoner",
+    }
+    return mapping.get(key, raw)
+
+
 def _build_context_from_chunks(relevant_chunks: Optional[list[dict[str, Any]]]) -> str:
     if not relevant_chunks:
         return ""
@@ -59,7 +79,11 @@ async def stream_assistant_reply(
 
     api_key = rag.api_key or os.getenv("DEEPSEEK_API_KEY")
     api_base = rag.api_base or os.getenv("DEEPSEEK_API_BASE", "https://api.deepseek.com")
-    model_name = model or rag.model_name or os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+    model_name = (
+        _normalize_model_name(model)
+        or rag.model_name
+        or os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+    )
 
     print(f"DeepSeek target: base={api_base} model={model_name} key_set={bool(api_key)}")
 
@@ -79,12 +103,17 @@ async def stream_assistant_reply(
         messages.append(SystemMessage(content=system_prompt))
     messages.append(HumanMessage(content=user_prompt))
 
-    # Stream tokens
-    async for chunk in llm.astream(messages):
-        token = getattr(chunk, "content", None)
-        if not token:
-            continue
-        yield json.dumps({"type": "item", "content": token}, ensure_ascii=False) + "\n"
-
-    # End marker
-    yield json.dumps({"type": "end"}, ensure_ascii=False) + "\n"
+    # Stream tokens. If something goes wrong mid-stream (e.g. invalid model id),
+    # still emit an end marker so the frontend can stop the loading indicator.
+    try:
+        async for chunk in llm.astream(messages):
+            token = getattr(chunk, "content", None)
+            if not token:
+                continue
+            yield json.dumps({"type": "item", "content": token}, ensure_ascii=False) + "\n"
+    except Exception as e:
+        msg = f"\n\n[AI 服务错误] {type(e).__name__}: {str(e)}"
+        yield json.dumps({"type": "item", "content": msg}, ensure_ascii=False) + "\n"
+    finally:
+        # End marker
+        yield json.dumps({"type": "end"}, ensure_ascii=False) + "\n"
