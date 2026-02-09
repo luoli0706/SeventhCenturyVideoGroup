@@ -122,6 +122,16 @@
               <a-radio value="ask">Ask</a-radio>
               <a-radio value="proxy">Proxy</a-radio>
             </a-radio-group>
+
+            <a-radio-group
+              v-model="memoryMode"
+              type="button"
+              size="small"
+              :style="{ marginLeft: '8px' }"
+            >
+              <a-radio value="temporary">临时</a-radio>
+              <a-radio value="longterm">长期</a-radio>
+            </a-radio-group>
             
             <a-button 
               class="multimodal-button disabled-feature" 
@@ -178,6 +188,8 @@ const isLoading = ref(false)
 // Use DeepSeek OpenAI-compatible model ids.
 const selectedModel = ref('deepseek-chat')
 const chatMode = ref('ask')
+// temporary: cn:sessionId (per-chat) ; longterm: cn (cross-session, capped on backend)
+const memoryMode = ref('temporary')
 const messagesArea = ref(null)
 const sessionId = ref('')
 
@@ -273,6 +285,7 @@ const goBack = () => {
 const startNewSession = () => {
   messages.value = []
   initializeSession()
+  memoryMode.value = 'temporary'
   console.log('新会话已开始，ID:', sessionId.value)
 }
 
@@ -386,6 +399,7 @@ const handleSend = async (event) => {
       body: JSON.stringify({
         sessionId: sessionId.value,
         cn: userInfo?.cn || 'unknown',
+        memoryMode: memoryMode.value,
         message: queryWithCompression, // 使用RAG增强查询 + 压缩提示
         originalMessage: message, // 保留原始用户消息用于记录
         mode: chatMode.value,

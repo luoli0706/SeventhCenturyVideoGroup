@@ -9,6 +9,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 from chain.prompt_loader import load_prompts
+from chain.chat_memory import LONGTERM_MODE, enforce_longterm_cap, get_history, normalize_memory_mode, take_last_messages
 from rag_service import RAGService
 
 
@@ -59,6 +60,9 @@ async def stream_assistant_reply(
     question: str,
     relevant_chunks: Optional[list[dict[str, Any]]] = None,
     model: Optional[str] = None,
+    session_id: Optional[str] = None,
+    actor_cn: Optional[str] = None,
+    memory_mode: Optional[str] = None,
 ) -> AsyncIterator[str]:
     """Yield newline-delimited JSON objects: begin/item/end.
 
@@ -98,22 +102,49 @@ async def stream_assistant_reply(
     # Begin marker
     yield json.dumps({"type": "begin"}, ensure_ascii=False) + "\n"
 
+    mode = normalize_memory_mode(memory_mode)
+    history = get_history(session_id=session_id, actor_cn=actor_cn, memory_mode=mode)
     messages = []
     if system_prompt:
         messages.append(SystemMessage(content=system_prompt))
+
+    # Inject recent memory (user/assistant turns). Keep it bounded.
+    try:
+        max_inject = 14 if mode == LONGTERM_MODE else 20
+        messages.extend(take_last_messages(list(history.messages), max_messages=max_inject))
+    except Exception:
+        # If history backend fails, continue without memory.
+        pass
+
     messages.append(HumanMessage(content=user_prompt))
 
     # Stream tokens. If something goes wrong mid-stream (e.g. invalid model id),
     # still emit an end marker so the frontend can stop the loading indicator.
+    assistant_parts: list[str] = []
+    had_error = False
     try:
         async for chunk in llm.astream(messages):
             token = getattr(chunk, "content", None)
             if not token:
                 continue
+            assistant_parts.append(token)
             yield json.dumps({"type": "item", "content": token}, ensure_ascii=False) + "\n"
     except Exception as e:
+        had_error = True
         msg = f"\n\n[AI 服务错误] {type(e).__name__}: {str(e)}"
         yield json.dumps({"type": "item", "content": msg}, ensure_ascii=False) + "\n"
     finally:
+        if not had_error:
+            try:
+                final_text = "".join(assistant_parts).strip()
+                if final_text:
+                    # Store raw user question (not the context-augmented template) to keep memory small.
+                    history.add_user_message((question or "").strip())
+                    history.add_ai_message(final_text)
+                    if mode == LONGTERM_MODE:
+                        enforce_longterm_cap(history)
+            except Exception:
+                pass
         # End marker
         yield json.dumps({"type": "end"}, ensure_ascii=False) + "\n"
+

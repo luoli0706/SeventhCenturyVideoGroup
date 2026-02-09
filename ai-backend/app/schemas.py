@@ -21,6 +21,7 @@ class StreamChatRequest(BaseModel):
     # Keep compatibility with the existing frontend payload from AIAssistant.vue
     sessionId: Optional[str] = None
     cn: Optional[str] = None
+    memoryMode: Optional[str] = None
     message: str
     originalMessage: Optional[str] = None
     model: Optional[str] = None

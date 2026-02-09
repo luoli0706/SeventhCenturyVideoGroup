@@ -23,6 +23,7 @@ from chain.assistant_chain import (
     _build_context_via_retrieval,
     _normalize_model_name,
 )
+from chain.chat_memory import LONGTERM_MODE, enforce_longterm_cap, get_history, normalize_memory_mode, take_last_messages
 from chain.prompt_loader import load_prompts
 from rag_service import RAGService
 
@@ -521,6 +522,8 @@ async def stream_mcp_register_reply(
     model: Optional[str] = None,
     authorization: Optional[str] = None,
     actor_cn: Optional[str] = None,
+    session_id: Optional[str] = None,
+    memory_mode: Optional[str] = None,
 ) -> AsyncIterator[str]:
     """Stream begin/item/end; in Proxy(MCP) mode uses tool to register via Go API."""
 
@@ -567,9 +570,21 @@ async def stream_mcp_register_reply(
             streaming=False,
         ).bind_tools(tools)
 
+        mode = normalize_memory_mode(memory_mode)
+        history = get_history(session_id=session_id, actor_cn=actor_cn, memory_mode=mode)
+
         messages = []
         if proxy_system:
             messages.append(SystemMessage(content=proxy_system))
+
+        # Inject recent memory (bounded). Keep tool traces out of memory by only persisting
+        # final user/assistant turns; this remains clean for planning.
+        try:
+            max_inject = 14 if mode == LONGTERM_MODE else 20
+            messages.extend(take_last_messages(list(history.messages), max_messages=max_inject))
+        except Exception:
+            pass
+
         messages.append(HumanMessage(content=user_prompt))
 
         actor_cn_norm = actor_cn.strip() if actor_cn and actor_cn.strip() else None
@@ -759,10 +774,23 @@ async def stream_mcp_register_reply(
                 )
             )
 
+        assistant_parts: list[str] = []
         async for chunk in responder.astream(final_messages):
             token_text = getattr(chunk, "content", None)
             if token_text:
+                assistant_parts.append(token_text)
                 yield json.dumps({"type": "item", "content": token_text}, ensure_ascii=False) + "\n"
+
+        # Persist turn to memory (best-effort)
+        try:
+            final_text = "".join(assistant_parts).strip()
+            if final_text:
+                history.add_user_message((question or "").strip())
+                history.add_ai_message(final_text)
+                if mode == LONGTERM_MODE:
+                    enforce_longterm_cap(history)
+        except Exception:
+            pass
     except Exception as e:
         msg = f"\n\n[MCP 代理错误] {type(e).__name__}: {str(e)}"
         yield json.dumps({"type": "item", "content": msg}, ensure_ascii=False) + "\n"
@@ -779,3 +807,4 @@ async def stream_mcp_register_reply(
         except Exception:
             pass
         yield json.dumps({"type": "end"}, ensure_ascii=False) + "\n"
+

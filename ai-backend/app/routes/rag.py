@@ -111,6 +111,9 @@ async def chat_rag_stream(request: StreamChatRequest):
             question=request.originalMessage or request.message,
             relevant_chunks=request.relevantChunks,
             model=request.model,
+            session_id=request.sessionId,
+            actor_cn=request.cn,
+            memory_mode=request.memoryMode,
         ):
             yield line
 
@@ -133,6 +136,8 @@ async def mcp_stream(request: StreamChatRequest, raw_request: Request):
             model=request.model,
             authorization=authorization,
             actor_cn=request.cn,
+            session_id=request.sessionId,
+            memory_mode=request.memoryMode,
         ):
             yield line
 
