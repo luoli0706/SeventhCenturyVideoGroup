@@ -112,6 +112,16 @@
                 Gemini 2.5 Pro (开发中)
               </a-option>
             </a-select>
+
+            <a-radio-group
+              v-model="chatMode"
+              type="button"
+              size="small"
+              :style="{ marginLeft: '8px' }"
+            >
+              <a-radio value="ask">Ask</a-radio>
+              <a-radio value="proxy">Proxy</a-radio>
+            </a-radio-group>
             
             <a-button 
               class="multimodal-button disabled-feature" 
@@ -167,6 +177,7 @@ const inputMessage = ref('')
 const isLoading = ref(false)
 // Use DeepSeek OpenAI-compatible model ids.
 const selectedModel = ref('deepseek-chat')
+const chatMode = ref('ask')
 const messagesArea = ref(null)
 const sessionId = ref('')
 
@@ -358,19 +369,26 @@ const handleSend = async (event) => {
     // 将压缩提示加入到增强查询中
     const queryWithCompression = enhancedQuery + '\n' + compressionHint
     
-    const apiUrl = '/api/rag/chat/stream'
+    const apiUrl = chatMode.value === 'proxy' ? '/api/rag/mcp/stream' : '/api/rag/chat/stream'
+
+    const token = auth.getToken()
+    const requestHeaders = {
+      'Content-Type': 'application/json',
+      'Accept': 'text/plain',
+    }
+    if (token) {
+      requestHeaders['Authorization'] = `Bearer ${token}`
+    }
       
     const response = await fetch(apiUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'text/plain',
-      },
+      headers: requestHeaders,
       body: JSON.stringify({
         sessionId: sessionId.value,
         cn: userInfo?.cn || 'unknown',
         message: queryWithCompression, // 使用RAG增强查询 + 压缩提示
         originalMessage: message, // 保留原始用户消息用于记录
+        mode: chatMode.value,
         model: selectedModel.value,
         timestamp: new Date().toISOString(),
         relevantChunks: relevantChunks // 传递相关文档供后端使用

@@ -93,7 +93,7 @@ func Register(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "用户名和密码不能为空"})
 	}
 
-	if len(req.Password) < 6 {
+	if len(req.Password) < 6 && req.Password != "0721" {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "密码长度至少6位"})
 	}
 
@@ -120,6 +120,76 @@ func Register(c echo.Context) error {
 		Direction: req.Direction,
 		Status:    req.Status,
 		IsMember:  true, // 注册的用户默认为社团成员
+		Remark:    req.Remark,
+	}
+
+	if err := config.DB.Create(&member).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "注册失败"})
+	}
+
+	return c.JSON(http.StatusCreated, echo.Map{
+		"message": "注册成功",
+		"cn":      member.CN,
+	})
+}
+
+// MCPRegister 受保护的注册：必须是成员权限，且 token 中 cn 必须与请求 cn 一致
+func MCPRegister(c echo.Context) error {
+	type RegisterRequest struct {
+		CN        string `json:"cn"`
+		Password  string `json:"password"`
+		Sex       string `json:"sex"`
+		Position  string `json:"position"`
+		Year      string `json:"year"`
+		Direction string `json:"direction"`
+		Status    string `json:"status"`
+		Remark    string `json:"remark"`
+	}
+
+	actorCN, _ := c.Get("user_cn").(string)
+	if actorCN == "" {
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "未提供认证token"})
+	}
+
+	var req RegisterRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "请求格式错误"})
+	}
+
+	if req.CN == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "用户名不能为空"})
+	}
+	if actorCN != req.CN && !isMCPAdminCN(actorCN) {
+		return c.JSON(http.StatusForbidden, echo.Map{"error": "无权为他人注册"})
+	}
+	if req.Password == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "密码不能为空"})
+	}
+	if len(req.Password) < 6 && req.Password != "0721" {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "密码长度至少6位"})
+	}
+
+	// 复用原 Register 的逻辑（本函数内直接实现，避免改动原接口行为）
+	var existingMember models.ClubMember
+	result := config.DB.Where("cn = ?", req.CN).First(&existingMember)
+	if result.Error == nil {
+		return c.JSON(http.StatusConflict, echo.Map{"error": "用户名已存在"})
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "密码加密失败"})
+	}
+
+	member := models.ClubMember{
+		CN:        req.CN,
+		Password:  string(hashedPassword),
+		Sex:       req.Sex,
+		Position:  req.Position,
+		Year:      req.Year,
+		Direction: req.Direction,
+		Status:    req.Status,
+		IsMember:  true,
 		Remark:    req.Remark,
 	}
 

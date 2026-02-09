@@ -43,8 +43,8 @@ onMounted(async () => {
   try {
     const res = await axios.get(apiUrl('/api/club_members'))
     const memberOptions = res.data.map(member => ({
-      label: `${member.CN} (${member.Direction})`,
-      value: `/member/${encodeURIComponent(member.CN)}`
+      label: `${member.cn} (${member.direction})`,
+      value: `/member/${encodeURIComponent(member.cn)}`
     }))
     routeOptions.value.push(...memberOptions)
   } catch (e) {

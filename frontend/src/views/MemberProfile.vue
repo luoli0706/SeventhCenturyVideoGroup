@@ -3,13 +3,13 @@
     <a-card :title="`${memberName} 的个人主页`" style="max-width: 600px; margin: 0 auto;">
       <div v-if="!profileExists" class="default-info">
         <div class="info-item">
-          <strong>姓名：</strong>{{ memberInfo.CN || memberName }}
+          <strong>姓名：</strong>{{ memberInfo.cn || memberName }}
         </div>
         <div class="info-item">
-          <strong>方向：</strong>{{ memberInfo.Direction || '暂无信息' }}
+          <strong>方向：</strong>{{ memberInfo.direction || '暂无信息' }}
         </div>
         <div class="info-item">
-          <strong>职务：</strong>{{ memberInfo.Position || '暂无信息' }}
+          <strong>职务：</strong>{{ memberInfo.position || '暂无信息' }}
         </div>
         <div class="no-profile-tip">
           <a-empty description="该成员尚未完善个人主页">
@@ -142,7 +142,7 @@ onMounted(async () => {
   // 获取成员基本信息
   try {
     const res = await axios.get(apiUrl('/api/club_members'))
-    const member = res.data.find(m => m.CN === memberName.value)
+    const member = res.data.find(m => m.cn === memberName.value)
     if (member) {
       memberInfo.value = member
     }

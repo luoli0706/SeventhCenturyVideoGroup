@@ -3,17 +3,17 @@
     <a-card title="名人堂（过往所有成员名单）">
       <a-scrollbar class="member-scrollbar">
         <div class="member-list">
-          <div v-for="member in members" :key="member.ID" class="member-block">
-            <router-link :to="`/member/${encodeURIComponent(member.CN)}`" class="member-name-link">
-              <div class="member-name">{{ member.CN }}</div>
+          <div v-for="member in members" :key="member.cn" class="member-block">
+            <router-link :to="`/member/${encodeURIComponent(member.cn)}`" class="member-name-link">
+              <div class="member-name">{{ member.cn }}</div>
             </router-link>
             <div class="member-info">
-              <span>性别：{{ member.Sex }}</span>
-              <span>职务：{{ member.Position }}</span>
-              <span>入学年份：{{ member.Year }}</span>
-              <span>方向：{{ member.Direction }}</span>
+              <span>性别：{{ member.sex }}</span>
+              <span>职务：{{ member.position }}</span>
+              <span>入学年份：{{ member.year }}</span>
+              <span>方向：{{ member.direction }}</span>
             </div>
-            <div class="member-remark">备注：{{ member.Remark }}</div>
+            <div class="member-remark">备注：{{ member.remark }}</div>
           </div>
         </div>
       </a-scrollbar>

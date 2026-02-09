@@ -16,6 +16,12 @@ func InitRoutes(e *echo.Echo) {
 	api.POST("/change-password", controllers.ChangePassword)
 	api.GET("/memory-code", controllers.GetMemoryCode)
 
+	// MCP 受保护路由（需要成员权限；GET 无 cn 限制；写操作默认 cn 必须一致，管理员可强制）
+	api.POST("/mcp/register", controllers.RequireMember(controllers.MCPRegister))
+	api.GET("/mcp/club_members/:cn", controllers.RequireMember(controllers.GetClubMemberByCN))
+	api.PUT("/mcp/club_members/:cn", controllers.RequireMember(controllers.UpdateClubMemberByCN))
+	api.DELETE("/mcp/club_members/:cn", controllers.RequireMember(controllers.DeleteClubMemberByCN))
+
 	// 公开路由（访客可访问）
 	api.GET("/club_members", controllers.GetClubMembers)
 	api.GET("/activities", controllers.GetActivities)

@@ -6,13 +6,14 @@ import time
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from app.deps import get_rag_service
 from app.schemas import ChatRequest, QueryRequest, StreamChatRequest
 
 from chain.assistant_chain import stream_assistant_reply
+from chain.mcp_register_chain import stream_mcp_register_reply
 
 router = APIRouter(prefix="/api/rag", tags=["rag"])
 
@@ -110,6 +111,28 @@ async def chat_rag_stream(request: StreamChatRequest):
             question=request.originalMessage or request.message,
             relevant_chunks=request.relevantChunks,
             model=request.model,
+        ):
+            yield line
+
+    return StreamingResponse(gen(), media_type="text/plain; charset=utf-8")
+
+
+@router.post("/mcp/stream")
+async def mcp_stream(request: StreamChatRequest, raw_request: Request):
+    if not request.message:
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    rag_service = get_rag_service()
+    authorization = raw_request.headers.get("authorization")
+
+    async def gen():
+        async for line in stream_mcp_register_reply(
+            rag=rag_service,
+            question=request.originalMessage or request.message,
+            relevant_chunks=request.relevantChunks,
+            model=request.model,
+            authorization=authorization,
+            actor_cn=request.cn,
         ):
             yield line
 
