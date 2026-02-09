@@ -45,43 +45,42 @@
           <!-- 聊天消息 -->
           <div v-for="message in messages" :key="message.id" :class="['message', message.role]">
             <!-- 系统消息（参考资料提示） -->
-            <div v-if="message.role === 'system'" class="system-message">
-              <div class="system-content">
-                {{ message.content }}
-                <!-- 显示参考资料列表 -->
-                <div v-if="message.references && message.references.length > 0" class="references-list">
-                  <details>
-                    <summary>查看参考资料</summary>
-                    <div v-for="(ref, idx) in message.references" :key="idx" class="reference-item">
-                      <strong>{{ ref.title }}</strong>
-                      <p>{{ ref.content.substring(0, 150) }}...</p>
-                      <span class="similarity-badge">相似度: {{ (ref.similarity * 100).toFixed(0) }}%</span>
-                    </div>
-                  </details>
+            <template v-if="message.role === 'system'">
+              <div class="system-message">
+                <div class="system-content">
+                  {{ message.content }}
+                  <!-- 显示参考资料列表 -->
+                  <div v-if="message.references && message.references.length > 0" class="references-list">
+                    <details>
+                      <summary>查看参考资料</summary>
+                      <div v-for="(ref, idx) in message.references" :key="idx" class="reference-item">
+                        <strong>{{ ref.title }}</strong>
+                        <p>{{ ref.content.substring(0, 150) }}...</p>
+                        <span class="similarity-badge">相似度: {{ (ref.similarity * 100).toFixed(0) }}%</span>
+                      </div>
+                    </details>
+                  </div>
                 </div>
               </div>
-            </div>
-            
+            </template>
+
             <!-- 助手消息 -->
-            <div v-else-if="message.role === 'assistant'">
+            <template v-else-if="message.role === 'assistant'">
               <div class="avatar assistant-avatar">视</div>
               <div class="message-content">
-                <div 
-                  class="message-text markdown-content"
-                  v-html="renderMarkdown(message.content)"
-                ></div>
+                <div class="message-text markdown-content" v-html="renderMarkdown(message.content)"></div>
                 <div class="message-time">{{ formatTime(message.timestamp) }}</div>
               </div>
-            </div>
-            
+            </template>
+
             <!-- 用户消息 -->
-            <div v-else-if="message.role === 'user'">
+            <template v-else-if="message.role === 'user'">
               <div class="message-content">
                 <div class="message-text user-message">{{ message.content }}</div>
                 <div class="message-time">{{ formatTime(message.timestamp) }}</div>
               </div>
               <div class="avatar user-avatar">{{ getUserInitial() }}</div>
-            </div>
+            </template>
           </div>
 
           <!-- 加载状态 -->
@@ -546,6 +545,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  width: 100%;
   background: var(--color-bg-1);
   color: var(--color-text-1);
 }
@@ -648,6 +648,9 @@ onMounted(() => {
   overflow-y: auto;
   padding: 24px;
   scroll-behavior: smooth;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 /* 欢迎消息 */
@@ -697,14 +700,24 @@ onMounted(() => {
   align-items: flex-start;
   gap: 12px;
   margin-bottom: 24px;
-  max-width: 800px;
+  justify-content: flex-start;
   width: 100%;
+  max-width: 900px;
+}
+
+.message.system {
+  display: block;
+  max-width: none;
 }
 
 .message.user {
-  margin-left: auto;
-  flex-direction: row-reverse;
-  max-width: 600px;
+  justify-content: flex-end;
+}
+
+.message.user .message-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
 }
 
 .avatar {
@@ -748,8 +761,9 @@ onMounted(() => {
 }
 
 .message.user .message-text {
-  background: var(--color-primary-6);
-  color: white;
+  background: var(--color-primary-light-1);
+  color: var(--color-text-1);
+  border: 1px solid var(--color-border-2);
   white-space: pre-wrap;
 }
 
