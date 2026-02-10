@@ -9,6 +9,7 @@ SeventhCenturyVideoGroup Club Management System — Fullstack Monorepo
 
 - 🎨 **现代前端**：Vue 3 + Vite + Arco Design，支持深浅主题切换
 - 🖥️ **后端服务**：Go + Echo + GORM，轻量高效，RESTful API
+- 🤖 **AI 助手服务**：Python + FastAPI + LangChain，支持 Ask/Proxy 两种模式
 - 🗄️ **数据库**：内置 SQLite，开箱即用
 - 📦 **一体化结构**：前后端分离，便于开发与部署
 - 🌐 **接口开放**：CORS 支持，便于前后端联调
@@ -20,6 +21,12 @@ SeventhCenturyVideoGroup Club Management System — Fullstack Monorepo
 
 ```
 SeventhCenturyVideoGroup/
+├── ai-backend/                     # AI 服务 (Python + FastAPI + LangChain)
+│   ├── main.py                     # 程序入口 (默认 6201)
+│   ├── requirements.txt            # Python 依赖
+│   ├── app/                        # FastAPI routes/schemas
+│   └── chain/                      # LangChain 链路（Ask/Proxy + 记忆）
+├── ai-agent/                       # 本地测试脚本/工具（端到端测试等）
 ├── backend/                        # 后端服务 Backend (Go + Echo + SQLite)
 │   ├── go.mod
 │   ├── go.sum
@@ -63,6 +70,13 @@ SeventhCenturyVideoGroup/
 - ORM: GORM
 - 数据库 Database: SQLite
 
+### AI 服务 | AI Service
+
+- 语言 Language: Python
+- 框架 Framework: FastAPI
+- LLM 编排 Orchestration: LangChain
+- 记忆 Memory: LangChain SQLChatMessageHistory + SQLite（可配置临时/长期）
+
 ---
 
 ## 🚀 快速开始 | Getting Started
@@ -71,7 +85,7 @@ SeventhCenturyVideoGroup/
 
 - Node.js 18+
 - Go 1.18+
-- 推荐 VS Code + Volar 插件 (Recommended: VS Code + Volar)
+- Python3.14+（建议使用项目内虚拟环境）
 
 ---
 
@@ -84,6 +98,11 @@ npm run dev
 ```
 访问 Visit: [http://localhost:5173](http://localhost:5173)
 
+开发模式代理（Vite dev proxy）：
+
+- `/api/*` → `http://localhost:7777`
+- `/api/rag/*` → `http://localhost:6201`
+
 ---
 
 ### 后端启动 | Backend Start
@@ -94,6 +113,35 @@ go mod tidy
 go run main.go
 ```
 服务默认监听 Service runs at: [http://localhost:7777](http://localhost:7777)
+
+---
+
+### AI 服务启动 | AI Backend Start
+
+AI 服务默认监听：`http://localhost:6201`
+
+1) 安装依赖（建议使用虚拟环境，例如 `.venv-1`）
+
+```bash
+cd ai-backend
+python -m venv ..\.venv-1
+..\.venv-1\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+2) 配置环境变量（最少需要 Key；Base/Model 可选）
+
+```bash
+setx DEEPSEEK_API_KEY "<your_key>"
+setx DEEPSEEK_API_BASE "https://api.deepseek.com"
+setx DEEPSEEK_MODEL "deepseek-chat"
+```
+
+3) 启动
+
+```bash
+cd ai-backend
+..\.venv-1\Scripts\python.exe main.py
+```
 
 ---
 
@@ -110,13 +158,35 @@ go run main.go
 - 响应式布局  
   Responsive layout
 
+- AI 助手（Ask / Proxy）
+  - Ask：只回答问题（走 `/api/rag/chat/stream`）
+  - Proxy：可在授权下执行成员注册/查询/更新/删除（走 `/api/rag/mcp/stream`）
+  - 记忆模式：
+    - 临时：按 `cn:sessionId` 记忆（一次对话内有效）
+    - 长期：按 `cn` 记忆（跨会话共享，后端最多保留 7 轮）
+
 ---
 
 ## 🔗 API 说明 | API Endpoints
 
-- `GET    /api/club_members`   获取社团成员列表 Get club members
-- `POST   /api/club_members`   新增社团成员 Add club member
-- `DELETE /api/club_members/:id` 删除社团成员 Delete club member
+### 公共/基础接口
+
+- `POST /api/register` 注册
+- `POST /api/login` 登录（返回 Bearer token）
+- `GET  /api/club_members` 获取社团成员列表（公开字段）
+
+### MCP（需要成员权限 + Bearer token）
+
+- `POST   /api/mcp/register` 注册成员（普通用户仅自己；管理员白名单可为任意 cn）
+- `GET    /api/mcp/club_members/:cn` 查询成员（无 cn 限制）
+- `PUT    /api/mcp/club_members/:cn` 更新成员（默认仅自己；管理员可强制）
+- `DELETE /api/mcp/club_members/:cn` 删除成员（默认仅自己；管理员可强制）
+
+### RAG / AI
+
+- `POST /api/rag/query` 仅检索
+- `POST /api/rag/chat/stream` Ask 模式流式对话（JSONL: begin/item/end）
+- `POST /api/rag/mcp/stream` Proxy 模式流式对话（同上；会调用 Go MCP 接口）
 
 ---
 
@@ -126,6 +196,9 @@ go run main.go
 - 默认数据库为 `app.db`，首次启动自动生成  
   Default DB is `app.db`, auto-created on first run
 
+- MCP 管理员白名单（Go + Python 同步）：`MCP_ADMIN_CNS`（逗号分隔 cn 列表）
+- AI 记忆数据库：默认 `ai-backend/data/chat_memory.sqlite`，可用 `CHAT_MEMORY_DB_PATH` 覆盖
+
 ---
 
 ## 📝 其他说明 | Additional Notes
@@ -134,6 +207,10 @@ go run main.go
   Place static images in `frontend/public/`
 - 推荐前后端同时启动进行开发  
   Recommended to run both frontend and backend for development
+
+- 记忆模式说明
+  - 前端可选择“临时/长期”；长期模式后端会自动裁剪为最多 7 轮，避免上下文无限增长
+  - 权限判断不依赖记忆内容，仍以 Bearer token + 后端规则为准（防止篡改）
 
 ---
 
@@ -149,7 +226,7 @@ go run main.go
 
 ## 📄 License
 
-MIT License
+Apache 2.0 License
 
 ---
 
