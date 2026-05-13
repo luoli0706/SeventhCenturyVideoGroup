@@ -1,5 +1,5 @@
 <template>
-  <div class="static-page">
+  <div :class="['static-page', isDark ? 'theme-dark' : 'theme-light']">
     <!-- 背景 -->
     <div class="bg-layer">
       <div class="bg-glow"></div>
@@ -104,8 +104,15 @@
 </template>
 
 <script setup>
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 const router = useRouter()
+const isDark = ref(true)
+
+function updateTheme() {
+  isDark.value = document.body.getAttribute('arco-theme') === 'dark'
+}
+
 function goBack() { router.push('/home') }
 
 const techniques = [
@@ -116,6 +123,12 @@ const techniques = [
   { name: '转场过渡', desc: '溶解、擦除、缩放等静帧过渡技法', level: 75 },
   { name: '声音设计', desc: '环境音、FX 与音乐的空间层次', level: 70 },
 ]
+
+onMounted(() => {
+  updateTheme()
+  const observer = new MutationObserver(updateTheme)
+  observer.observe(document.body, { attributes: true, attributeFilter: ['arco-theme'] })
+})
 </script>
 
 <style scoped>
@@ -530,4 +543,48 @@ const techniques = [
   .page-content { padding: 80px 16px 60px; }
   .ethos-grid, .branch-grid { grid-template-columns: 1fr; }
 }
+
+/* ========== Light mode ========== */
+.theme-light {
+  background: #f5f7fb;
+  color: #1d2129;
+}
+.theme-light .page-nav {
+  background: rgba(255,255,255,0.9);
+  border-bottom-color: rgba(0,0,0,0.06);
+}
+.theme-light .nav-back { color: rgba(0,0,0,0.35); }
+.theme-light .nav-back:hover { color: #0f9b8e; background: rgba(15,155,142,0.06); }
+.theme-light .nav-badge {
+  color: rgba(0,0,0,0.4);
+  border-color: rgba(0,0,0,0.06);
+}
+.theme-light .title-line { color: #1d2129; }
+.theme-light .title-sub { color: rgba(0,0,0,0.2); }
+.theme-light .title-char {
+  background: linear-gradient(180deg, #1d2129 0%, rgba(29,33,41,0.4) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.theme-light .hero-desc { color: rgba(0,0,0,0.35); }
+.theme-light .section-title { color: #1d2129; }
+.theme-light .section-title::after {
+  background: linear-gradient(to right, rgba(230,168,23,0.2), transparent);
+}
+.theme-light .ethos-card {
+  background: #fff;
+  border-color: rgba(0,0,0,0.06);
+}
+.theme-light .ethos-icon { color: rgba(230,168,23,0.4); }
+.theme-light .ethos-card p { color: rgba(0,0,0,0.45); }
+.theme-light .skill-label { color: rgba(0,0,0,0.5); }
+.theme-light .skill-bar-track { background: rgba(0,0,0,0.04); }
+.theme-light .skill-item span { color: rgba(0,0,0,0.25); }
+.theme-light .branch-card {
+  background: #fff;
+  border-color: rgba(0,0,0,0.06);
+}
+.theme-light .branch-card h3 { color: #1d2129; }
+.theme-light .branch-card p { color: rgba(0,0,0,0.4); }
 </style>

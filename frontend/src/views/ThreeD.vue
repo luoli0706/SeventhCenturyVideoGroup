@@ -1,5 +1,5 @@
 <template>
-  <div class="threed-page">
+  <div :class="['threed-page', isDark ? 'theme-dark' : 'theme-light']">
     <!-- 背景层 -->
     <div class="bg-layer">
       <div class="bg-grid"></div>
@@ -124,11 +124,21 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 const router = useRouter()
+const isDark = ref(true)
+
+function updateTheme() {
+  isDark.value = document.body.getAttribute('arco-theme') === 'dark'
+}
+
 function goBack() { router.push('/home') }
 
 const orbRef = ref(null)
 
 onMounted(() => {
+  updateTheme()
+  const observer = new MutationObserver(updateTheme)
+  observer.observe(document.body, { attributes: true, attributeFilter: ['arco-theme'] })
+
   const orb = orbRef.value
   if (!orb) return
   let angle = 0
@@ -632,5 +642,56 @@ const workflow = [
   .page-content { padding: 80px 16px 60px; }
   .concept-grid, .workflow { grid-template-columns: 1fr; }
   .mission-principles { flex-direction: column; }
+}
+
+/* ========== Light mode ========== */
+.theme-light {
+  background: #f5f7fb;
+  color: #1d2129;
+}
+.theme-light .page-nav {
+  background: rgba(255,255,255,0.9);
+  border-bottom-color: rgba(0,0,0,0.06);
+}
+.theme-light .nav-back { color: rgba(0,0,0,0.35); }
+.theme-light .nav-back:hover { color: #0f9b8e; background: rgba(15,155,142,0.06); }
+.theme-light .nav-badge {
+  color: #0f9b8e;
+  border-color: rgba(15,155,142,0.15);
+  background: rgba(15,155,142,0.04);
+}
+.theme-light .hero-title { color: #1d2129; }
+.theme-light .hero-sub { color: rgba(0,0,0,0.2); }
+.theme-light .hero-desc { color: rgba(0,0,0,0.35); }
+.theme-light .metric-value { color: #0f9b8e; }
+.theme-light .metric-unit { color: rgba(0,0,0,0.2); }
+.theme-light .metric-grid { border-color: rgba(0,0,0,0.06); }
+.theme-light .section-title { color: #1d2129; }
+.theme-light .section-title::after {
+  background: linear-gradient(to right, rgba(15,155,142,0.2), transparent);
+}
+.theme-light .concept-card {
+  background: #fff;
+  border-color: rgba(0,0,0,0.06);
+}
+.theme-light .concept-tag { color: #0f9b8e; }
+.theme-light .concept-card h3 { color: #1d2129; }
+.theme-light .concept-card p { color: rgba(0,0,0,0.4); }
+.theme-light .step-card {
+  background: #fff;
+  border-color: rgba(0,0,0,0.06);
+}
+.theme-light .step-icon { color: #0f9b8e; }
+.theme-light .step-card h4 { color: #1d2129; }
+.theme-light .step-card p { color: rgba(0,0,0,0.4); }
+.theme-light .mission-card {
+  background: #fff;
+  border-color: rgba(0,0,0,0.06);
+}
+.theme-light .mission-card p { color: rgba(0,0,0,0.45); }
+.theme-light .principle {
+  background: rgba(15,155,142,0.04);
+  border-color: rgba(15,155,142,0.08);
+  color: rgba(0,0,0,0.4);
 }
 </style>

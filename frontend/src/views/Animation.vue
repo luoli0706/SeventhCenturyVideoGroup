@@ -1,5 +1,5 @@
 <template>
-  <div class="animation-page">
+  <div :class="['animation-page', isDark ? 'theme-dark' : 'theme-light']">
     <!-- 动态背景层 -->
     <div class="bg-layer">
       <div class="bg-gradient"></div>
@@ -102,8 +102,15 @@
 </template>
 
 <script setup>
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 const router = useRouter()
+const isDark = ref(true)
+
+function updateTheme() {
+  isDark.value = document.body.getAttribute('arco-theme') === 'dark'
+}
+
 function goBack() { router.push('/home') }
 
 function particleStyle(i) {
@@ -134,6 +141,12 @@ const tools = [
   { cat: '音频', name: 'Adobe Audition / Reaper' },
   { cat: '素材管理', name: 'Daminion / Notion / Excel 时间轴' },
 ]
+
+onMounted(() => {
+  updateTheme()
+  const observer = new MutationObserver(updateTheme)
+  observer.observe(document.body, { attributes: true, attributeFilter: ['arco-theme'] })
+})
 </script>
 
 <style scoped>
@@ -546,4 +559,54 @@ const tools = [
   .page-content { padding: 80px 16px 60px; }
   .card-grid { grid-template-columns: 1fr; }
 }
+
+/* ========== Light mode ========== */
+.theme-light {
+  background: #f5f7fb;
+  color: #1d2129;
+}
+.theme-light .page-nav {
+  background: rgba(255,255,255,0.9);
+  border-bottom-color: rgba(0,0,0,0.06);
+}
+.theme-light .nav-back { color: rgba(0,0,0,0.35); }
+.theme-light .nav-back:hover { color: #0f9b8e; background: rgba(15,155,142,0.06); }
+.theme-light .nav-badge {
+  color: rgba(0,0,0,0.4);
+  border-color: rgba(0,0,0,0.06);
+}
+.theme-light .title-line {
+  background: linear-gradient(135deg, #e66432, #e6a817);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.theme-light .title-sub { color: rgba(0,0,0,0.2); }
+.theme-light .hero-desc { color: rgba(0,0,0,0.35); }
+.theme-light .stat-label { color: rgba(0,0,0,0.2); }
+.theme-light .stat-divider { background: rgba(0,0,0,0.06); }
+.theme-light .section-title { color: #1d2129; }
+.theme-light .section-title::after {
+  background: linear-gradient(to right, rgba(230,168,23,0.2), transparent);
+}
+.theme-light .info-card { border-color: rgba(0,0,0,0.06); }
+.theme-light .info-card h3 { color: #1d2129; }
+.theme-light .info-card p { color: rgba(0,0,0,0.45); }
+.theme-light .card-anime { background: rgba(230,100,50,0.04); }
+.theme-light .card-static { background: rgba(230,168,23,0.03); }
+.theme-light .card-mix { background: rgba(15,155,142,0.03); }
+.theme-light .info-card:hover { border-color: rgba(0,0,0,0.1); }
+.theme-light .flow-step { border-left-color: rgba(0,0,0,0.06); }
+.theme-light .step-number { color: rgba(230,168,23,0.25); }
+.theme-light .step-content h3 { color: #1d2129; }
+.theme-light .step-content p { color: rgba(0,0,0,0.4); }
+.theme-light .tool-chip {
+  background: rgba(0,0,0,0.02);
+  border-color: rgba(0,0,0,0.06);
+}
+.theme-light .tool-chip:hover {
+  background: rgba(15,155,142,0.04);
+  border-color: rgba(15,155,142,0.12);
+}
+.theme-light .tool-name { color: rgba(0,0,0,0.5); }
 </style>
