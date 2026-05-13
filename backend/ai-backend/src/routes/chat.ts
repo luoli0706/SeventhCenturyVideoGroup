@@ -14,7 +14,8 @@ export function createChatRouter(agent: AgentGraph, history: ChatHistory): Route
 
   // POST /api/ai/chat - streaming chat with ReACT navigation
   router.post('/chat', async (req: Request, res: Response) => {
-    const { message, sessionId } = req.body as ChatRequest
+    const { message, sessionId, userId } = req.body as ChatRequest
+    const uid = userId || req.headers['x-user-cn'] as string || ''
 
     if (!message || !message.trim()) {
       res.status(400).json({ error: 'message is required' })
@@ -22,7 +23,7 @@ export function createChatRouter(agent: AgentGraph, history: ChatHistory): Route
     }
 
     const sid = sessionId || 'anonymous'
-    console.log(`[Chat] Session: ${sid} | Query: "${message.substring(0, 80)}..."`)
+    console.log(`[Chat] Session: ${sid} | User: ${uid} | Query: "${message.substring(0, 80)}..."`)
 
     // Set up streaming response headers
     res.setHeader('Content-Type', 'text/event-stream')
@@ -36,8 +37,8 @@ export function createChatRouter(agent: AgentGraph, history: ChatHistory): Route
     let fullAssistantContent = ''
 
     try {
-      // Ensure session exists in SQLite
-      history.createSession(sid)
+      // Ensure session exists in SQLite (scoped to user)
+      history.createSession(sid, uid)
 
       // Get or create session memory
       if (!sessions.has(sid)) {

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"seventhcenturyvideogroup/backend/go-echo-sqlite/config"
 	"seventhcenturyvideogroup/backend/go-echo-sqlite/models"
+	"seventhcenturyvideogroup/backend/go-echo-sqlite/services"
 	"strings"
 	"time"
 
@@ -168,6 +169,7 @@ func CreateOrUpdateMemberProfile(c echo.Context) error {
 			return c.JSON(http.StatusInternalServerError, echo.Map{"error": createResult.Error.Error()})
 		}
 		fmt.Printf("创建成功，最终profile: %+v\n", profile)
+			go services.SyncProfileUpdate(cn, &profile)
 		return c.JSON(http.StatusCreated, profile)
 	} else {
 		// 已存在，更新
@@ -193,6 +195,7 @@ func CreateOrUpdateMemberProfile(c echo.Context) error {
 		if updateResult.Error != nil {
 			return c.JSON(http.StatusInternalServerError, echo.Map{"error": updateResult.Error.Error()})
 		}
+			go services.SyncProfileUpdate(cn, &profile)
 		fmt.Printf("更新成功，最终profile: %+v\n", profile)
 		return c.JSON(http.StatusOK, profile)
 	}

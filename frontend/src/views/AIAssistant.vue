@@ -202,9 +202,16 @@ function formatDate(dateStr) {
   return `${d.getMonth() + 1}/${d.getDate()}`
 }
 
+function getUserCn() {
+  const info = auth.getUserInfo()
+  return info?.cn || ''
+}
+
 async function fetchSessions() {
   try {
-    const resp = await fetch('/api/ai/sessions')
+    const cn = getUserCn()
+    if (!cn) return
+    const resp = await fetch(`/api/ai/sessions?userId=${encodeURIComponent(cn)}`)
     if (!resp.ok) return
     const data = await resp.json()
     sessions.value = data.sessions || []
@@ -217,7 +224,9 @@ async function loadSession(sid) {
   try {
     showHistory.value = false
     sessionId.value = sid
-    const resp = await fetch(`/api/ai/sessions/${encodeURIComponent(sid)}`)
+    const cn = getUserCn()
+    if (!cn) return
+    const resp = await fetch(`/api/ai/sessions/${encodeURIComponent(sid)}?userId=${encodeURIComponent(cn)}`)
     if (!resp.ok) return
     const data = await resp.json()
     const loaded = (data.messages || []).map((m, i) => ({
@@ -236,7 +245,9 @@ async function loadSession(sid) {
 
 async function deleteSession(sid) {
   try {
-    await fetch(`/api/ai/sessions/${encodeURIComponent(sid)}`, { method: 'DELETE' })
+    const cn = getUserCn()
+    if (!cn) return
+    await fetch(`/api/ai/sessions/${encodeURIComponent(sid)}?userId=${encodeURIComponent(cn)}`, { method: 'DELETE' })
     sessions.value = sessions.value.filter(s => s.id !== sid)
     if (sessionId.value === sid) {
       startNewSession()
@@ -322,7 +333,7 @@ const handleSend = async (event) => {
     const resp = await fetch('/api/ai/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text, sessionId: sessionId.value, model: selectedModel.value })
+      body: JSON.stringify({ message: text, sessionId: sessionId.value, model: selectedModel.value, userId: getUserCn() })
     })
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
 

@@ -1,9 +1,11 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
 	"seventhcenturyvideogroup/backend/go-echo-sqlite/config"
 	"seventhcenturyvideogroup/backend/go-echo-sqlite/models"
+	"seventhcenturyvideogroup/backend/go-echo-sqlite/services"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -126,6 +128,14 @@ func Register(c echo.Context) error {
 	if err := config.DB.Create(&member).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "注册失败"})
 	}
+
+	// 同步成员信息到知识库
+	go func() {
+		if err := services.SyncNewMember(&member); err != nil {
+			config.DB.Model(&member).Update("remark",
+				fmt.Sprintf("%s [KB同步失败: %v]", member.Remark, err))
+		}
+	}()
 
 	return c.JSON(http.StatusCreated, echo.Map{
 		"message": "注册成功",

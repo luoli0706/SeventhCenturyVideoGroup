@@ -115,18 +115,18 @@
           </div>
           <div class="editor-tabs-wrap">
             <button
-              :class="['editor-tab', { active: editorTab === 'edit' }]"
-              @click="editorTab = 'edit'"
-            >
-              <icon-edit /> 编辑
-            </button>
-            <button
               :class="['editor-tab', { active: editorTab === 'preview' }]"
               @click="editorTab = 'preview'"
             >
               <icon-eye /> 预览
             </button>
-            <div class="tab-indicator" :style="{ left: editorTab === 'edit' ? '0' : '50%' }"></div>
+            <button
+              :class="['editor-tab', { active: editorTab === 'edit' }]"
+              @click="editorTab = 'edit'"
+            >
+              <icon-edit /> 编辑
+            </button>
+            <div class="tab-indicator" :style="{ left: editorTab === 'preview' ? '0' : '50%' }"></div>
           </div>
           <div class="editor-content" :class="{ 'is-preview': editorTab === 'preview' }">
             <textarea
@@ -183,7 +183,7 @@ const editContent = ref('')
 const savedContent = ref('')
 const contentChanged = ref(false)
 const saving = ref(false)
-const editorTab = ref('edit')
+const editorTab = ref('preview')
 const searchQuery = ref('')
 const createDialogVisible = ref(false)
 const createType = ref('file')
@@ -318,7 +318,7 @@ async function selectNode(node) {
       editContent.value = res.data.content || ''
       savedContent.value = res.data.content || ''
       contentChanged.value = false
-      editorTab.value = 'edit'
+      editorTab.value = 'preview'
     } catch (err) {
       console.error('读取文件失败:', err)
     }
