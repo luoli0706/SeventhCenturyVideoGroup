@@ -1,5 +1,5 @@
 <template>
-  <div class="profile-page">
+  <div :class="['profile-page', isDark ? 'theme-dark' : 'theme-light']">
     <div class="bg-layer">
       <div class="bg-gradient"></div>
       <div class="bg-dots"></div>
@@ -141,6 +141,11 @@ const memberInfo = ref({})
 const profileExists = ref(false)
 const profileData = ref({})
 const canEdit = ref(false)
+const isDark = ref(true)
+
+function updateTheme() {
+  isDark.value = document.body.getAttribute('arco-theme') === 'dark'
+}
 
 function goBack() { router.back() }
 
@@ -174,6 +179,9 @@ async function getProfileData() {
 }
 
 onMounted(async () => {
+  updateTheme()
+  const observer = new MutationObserver(updateTheme)
+  observer.observe(document.body, { attributes: true, attributeFilter: ['arco-theme'] })
   memberName.value = decodeURIComponent(route.params.name)
   canEdit.value = checkEditPermission()
 
@@ -461,6 +469,69 @@ onMounted(async () => {
   color: rgba(255,255,255,0.2);
   margin: 0;
   font-style: italic;
+}
+
+/* ========== Light mode ========== */
+.profile-page.theme-light {
+  background: #f5f7fb;
+  color: #1d2129;
+}
+.theme-light .bg-dots {
+  background-image: radial-gradient(rgba(0,0,0,0.025) 0.5px, transparent 0.5px);
+}
+.theme-light .page-nav {
+  background: rgba(255,255,255,0.9);
+  border-bottom-color: rgba(0,0,0,0.06);
+}
+.theme-light .nav-edit {
+  border-color: rgba(15,155,142,0.2);
+}
+.theme-light .nav-edit:hover {
+  background: rgba(15,155,142,0.06);
+}
+.theme-light .nav-back { color: rgba(0,0,0,0.35); }
+.theme-light .nav-back:hover {
+  color: #0f9b8e;
+  background: rgba(15,155,142,0.06);
+}
+.theme-light .hero-name {
+  background: linear-gradient(135deg, #1d2129, rgba(29,33,41,0.6));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.theme-light .info-card {
+  background: #fff;
+  border-color: rgba(0,0,0,0.06);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.02);
+}
+.theme-light .info-card:hover {
+  border-color: rgba(15,155,142,0.12);
+}
+.theme-light .ic-icon {
+  background: rgba(15,155,142,0.06);
+  border-color: rgba(15,155,142,0.06);
+}
+.theme-light .ic-value { color: rgba(0,0,0,0.55); }
+.theme-light .signature-text { color: rgba(15,155,142,0.7); }
+.theme-light .ic-label { color: rgba(0,0,0,0.15); }
+.theme-light .empty-icon-circle {
+  background: rgba(0,0,0,0.02);
+  border-color: rgba(0,0,0,0.04);
+  color: rgba(0,0,0,0.06);
+}
+.theme-light .empty-title { color: rgba(0,0,0,0.45); }
+.theme-light .empty-desc { color: rgba(0,0,0,0.2); }
+.theme-light .remark-text { color: rgba(0,0,0,0.15); }
+.theme-light .tag-year {
+  background: rgba(0,0,0,0.03);
+  color: rgba(0,0,0,0.25);
+  border-color: rgba(0,0,0,0.04);
+}
+.theme-light .tag-sex {
+  background: rgba(0,0,0,0.02);
+  color: rgba(0,0,0,0.15);
+  border-color: rgba(0,0,0,0.04);
 }
 
 /* --- Responsive --- */

@@ -1,5 +1,5 @@
 <template>
-  <div class="members-page">
+  <div :class="['members-page', isDark ? 'theme-dark' : 'theme-light']">
     <!-- 背景 -->
     <div class="bg-layer">
       <div class="bg-gradient"></div>
@@ -77,8 +77,18 @@
 </template>
 
 <script setup>
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 const router = useRouter()
+const isDark = ref(true)
+function updateTheme() {
+  isDark.value = document.body.getAttribute('arco-theme') === 'dark'
+}
+onMounted(() => {
+  updateTheme()
+  const observer = new MutationObserver(updateTheme)
+  observer.observe(document.body, { attributes: true, attributeFilter: ['arco-theme'] })
+})
 function goBack() { router.push('/home') }
 </script>
 
@@ -335,6 +345,51 @@ function goBack() { router.push('/home') }
   color: rgba(255,255,255,0.1);
   letter-spacing: 1px;
 }
+
+/* ========== Light mode ========== */
+.members-page.theme-light {
+  background: #f5f7fb;
+  color: #1d2129;
+}
+.theme-light .bg-dots {
+  background-image: radial-gradient(rgba(0,0,0,0.03) 0.5px, transparent 0.5px);
+}
+.theme-light .page-nav {
+  background: rgba(255,255,255,0.9);
+  border-bottom-color: rgba(0,0,0,0.06);
+}
+.theme-light .nav-back { color: rgba(0,0,0,0.35); }
+.theme-light .nav-back:hover {
+  color: #0f9b8e;
+  background: rgba(15,155,142,0.06);
+}
+.theme-light .hero-desc { color: rgba(0,0,0,0.2); }
+.theme-light .photo-frame {
+  border-color: rgba(0,0,0,0.06);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+.theme-light .photo-frame:hover {
+  box-shadow: 0 6px 30px rgba(15,155,142,0.04);
+}
+.theme-light .photo-caption { color: rgba(0,0,0,0.12); }
+.theme-light .nav-card {
+  background: #fff;
+  border-color: rgba(0,0,0,0.06);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.02);
+}
+.theme-light .nav-card:hover {
+  border-color: rgba(15,155,142,0.15);
+  box-shadow: 0 2px 12px rgba(15,155,142,0.04);
+}
+.theme-light .nav-card-bg {
+  background: linear-gradient(135deg, rgba(15,155,142,0.04), transparent);
+}
+.theme-light .nav-card-title { color: #1d2129; }
+.theme-light .nav-card-desc { color: rgba(0,0,0,0.3); }
+.theme-light .nav-card-arrow { color: rgba(0,0,0,0.08); }
+.theme-light .nav-card-icon { color: rgba(15,155,142,0.4); }
+.theme-light .nav-card:hover .nav-card-icon { color: #0f9b8e; }
+.theme-light .page-footer p { color: rgba(0,0,0,0.08); }
 
 /* --- Responsive --- */
 @media (max-width: 600px) {

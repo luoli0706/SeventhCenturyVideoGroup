@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -57,9 +59,11 @@ func handleAvatarUpload(c echo.Context, cn string) (string, error) {
 		return "", fmt.Errorf("创建pics目录失败: %v", err)
 	}
 
-	// 生成唯一的文件名
+	// 生成唯一的文件名（使用cn的md5前缀，避免中文字符）
+	hash := md5.Sum([]byte(cn))
+	prefix := hex.EncodeToString(hash[:8])
 	timestamp := time.Now().Unix()
-	filename := fmt.Sprintf("%s_%d%s", cn, timestamp, ext)
+	filename := fmt.Sprintf("%s_%d%s", prefix, timestamp, ext)
 	filePath := filepath.Join("pics", filename)
 
 	// 打开上传的文件

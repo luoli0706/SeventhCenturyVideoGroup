@@ -25,6 +25,7 @@ import AdminLogin from '../views/AdminLogin.vue'
 import MemoryCodeView from '../views/MemoryCodeView.vue'
 import AIAssistant from '../views/AIAssistant.vue'
 import KBManager from '../views/KBManager.vue'
+import Games from '../views/Games.vue'
 const routes = [
   // 登录相关页面
   { path: '/', component: LoginChoice },
@@ -46,6 +47,7 @@ const routes = [
   { path: '/static', component: Static },
   { path: '/3d', component: ThreeD },
   { path: '/recruit', component: Recruit },
+  { path: '/games', component: Games },
   { path: '/member/:name', component: MemberProfile },
   { path: '/ai-assistant', component: AIAssistant },
 

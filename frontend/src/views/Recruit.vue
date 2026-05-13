@@ -1,5 +1,5 @@
 <template>
-  <div class="recruit-page">
+  <div :class="['recruit-page', isDark ? 'theme-dark' : 'theme-light']">
     <!-- 背景层 -->
     <div class="bg-layer">
       <div class="bg-gradient"></div>
@@ -170,9 +170,17 @@ function goBack() { router.push('/home') }
 
 const copied = ref(false)
 const showScrollTop = ref(false)
+const isDark = ref(true)
 let scrollHandler = null
 
+function updateTheme() {
+  isDark.value = document.body.getAttribute('arco-theme') === 'dark'
+}
+
 onMounted(() => {
+  updateTheme()
+  const observer = new MutationObserver(updateTheme)
+  observer.observe(document.body, { attributes: true, attributeFilter: ['arco-theme'] })
   scrollHandler = () => {
     showScrollTop.value = window.scrollY > 400
   }
@@ -945,6 +953,68 @@ const faqs = [
   color: rgba(255,255,255,0.15);
   letter-spacing: 1px;
 }
+
+/* ========== Light mode ========== */
+.recruit-page.theme-light {
+  background: #f5f7fb;
+  color: #1d2129;
+}
+.theme-light .bg-dots {
+  background-image: radial-gradient(rgba(0,0,0,0.025) 0.5px, transparent 0.5px);
+}
+.theme-light .top-nav {
+  background: rgba(255,255,255,0.9);
+  border-bottom-color: rgba(0,0,0,0.06);
+}
+.theme-light .nav-back { color: rgba(0,0,0,0.35); }
+.theme-light .nav-back:hover {
+  color: #0f9b8e;
+  background: rgba(15,155,142,0.06);
+}
+.theme-light .hero-desc { color: rgba(0,0,0,0.35); }
+.theme-light .about-card {
+  background: #fff;
+  border-color: rgba(0,0,0,0.06);
+}
+.theme-light .about-card p { color: rgba(0,0,0,0.5); }
+.theme-light .about-motto { color: rgba(0,0,0,0.35); }
+.theme-light .section-title::after {
+  background: linear-gradient(to right, rgba(0,0,0,0.06), transparent);
+}
+.theme-light .track-card {
+  background: rgba(230,100,50,0.02);
+  border-color: rgba(230,100,50,0.06);
+}
+.theme-light .track-mmd {
+  background: rgba(15,155,142,0.02);
+  border-color: rgba(15,155,142,0.06);
+}
+.theme-light .track-card:hover { box-shadow: 0 8px 32px rgba(0,0,0,0.04); }
+.theme-light .track-card h3 { color: #1d2129; }
+.theme-light .track-card li { color: rgba(0,0,0,0.4); }
+.theme-light .join-card {
+  background: linear-gradient(135deg, rgba(15,155,142,0.04), rgba(230,168,23,0.02));
+  border-color: rgba(15,155,142,0.06);
+}
+.theme-light .join-text h3 { color: #1d2129; }
+.theme-light .join-text p { color: rgba(0,0,0,0.4); }
+.theme-light .qq-number {
+  background: rgba(0,0,0,0.02);
+  border-color: rgba(0,0,0,0.06);
+}
+.theme-light .faq-item {
+  background: #fff;
+  border-color: rgba(0,0,0,0.06);
+}
+.theme-light .faq-item[open] { border-color: rgba(15,155,142,0.12); }
+.theme-light .faq-q { color: rgba(0,0,0,0.6); }
+.theme-light .faq-a { color: rgba(0,0,0,0.35); }
+.theme-light .scroll-top {
+  background: rgba(255,255,255,0.9);
+  border-color: rgba(0,0,0,0.06);
+  color: rgba(0,0,0,0.2);
+}
+.theme-light .page-footer p { color: rgba(0,0,0,0.08); }
 
 /* ========= Responsive ========= */
 @media (max-width: 700px) {

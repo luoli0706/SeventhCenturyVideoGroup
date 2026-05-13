@@ -1,5 +1,5 @@
 <template>
-  <div class="events-page">
+  <div :class="['events-page', isDark ? 'theme-dark' : 'theme-light']">
     <!-- 背景 -->
     <div class="bg-layer">
       <div class="bg-gradient"></div>
@@ -101,6 +101,11 @@ function goBack() { router.back() }
 const sortType = ref('time')
 const events = ref([])
 const loading = ref(true)
+const isDark = ref(true)
+
+function updateTheme() {
+  isDark.value = document.body.getAttribute('arco-theme') === 'dark'
+}
 
 const sortedEvents = computed(() => {
   const list = [...events.value]
@@ -136,6 +141,9 @@ function timeAgo(dateStr) {
 }
 
 onMounted(async () => {
+  updateTheme()
+  const observer = new MutationObserver(updateTheme)
+  observer.observe(document.body, { attributes: true, attributeFilter: ['arco-theme'] })
   try {
     const res = await api.get('/api/activities')
     events.value = res.data || []
@@ -481,6 +489,52 @@ onMounted(async () => {
   font-size: 0.75rem;
   color: rgba(255,255,255,0.1);
   letter-spacing: 1px;
+}
+
+/* ========== Light mode ========== */
+.events-page.theme-light {
+  background: #f5f7fb;
+  color: #1d2129;
+}
+.theme-light .bg-grid {
+  background-image:
+    linear-gradient(rgba(0,0,0,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,0,0,0.015) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+.theme-light .page-nav {
+  background: rgba(255,255,255,0.9);
+  border-bottom-color: rgba(0,0,0,0.06);
+}
+.theme-light .nav-back { color: rgba(0,0,0,0.35); }
+.theme-light .nav-back:hover {
+  color: #0f9b8e;
+  background: rgba(15,155,142,0.06);
+}
+.theme-light .hero-desc { color: rgba(0,0,0,0.2); }
+.theme-light .tl-line {
+  background: linear-gradient(to bottom, rgba(15,155,142,0.15), rgba(15,155,142,0.03), transparent);
+}
+.theme-light .tl-card {
+  background: #fff;
+  border-color: rgba(0,0,0,0.06);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.02);
+}
+.theme-light .tl-card:hover {
+  border-color: rgba(15,155,142,0.12);
+  background: rgba(15,155,142,0.015);
+}
+.theme-light .tl-title { color: #1d2129; }
+.theme-light .tl-content { color: rgba(0,0,0,0.4); }
+.theme-light .tl-timeago { color: rgba(0,0,0,0.12); }
+.theme-light .tl-date-num { color: rgba(15,155,142,0.5); }
+.theme-light .tl-date-month { color: rgba(0,0,0,0.12); }
+.theme-light .page-footer p { color: rgba(0,0,0,0.08); }
+.theme-light .empty-text { color: rgba(0,0,0,0.2); }
+.theme-light .sort-select :deep(.arco-select-view) {
+  background: rgba(0,0,0,0.02) !important;
+  border-color: rgba(0,0,0,0.06) !important;
+  color: rgba(0,0,0,0.4) !important;
 }
 
 /* --- Responsive --- */

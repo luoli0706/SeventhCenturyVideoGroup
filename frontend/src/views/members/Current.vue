@@ -1,5 +1,5 @@
 <template>
-  <div class="current-page">
+  <div :class="['current-page', isDark ? 'theme-dark' : 'theme-light']">
     <div class="bg-layer">
       <div class="bg-gradient"></div>
       <div class="bg-dots"></div>
@@ -61,10 +61,18 @@ import api from '../../utils/api'
 const router = useRouter()
 const members = ref([])
 const loading = ref(true)
+const isDark = ref(true)
+
+function updateTheme() {
+  isDark.value = document.body.getAttribute('arco-theme') === 'dark'
+}
 
 function goBack() { router.push('/members') }
 
 onMounted(async () => {
+  updateTheme()
+  const observer = new MutationObserver(updateTheme)
+  observer.observe(document.body, { attributes: true, attributeFilter: ['arco-theme'] })
   try {
     const res = await api.get('/api/club_members')
     members.value = (res.data || []).filter(m => m.Status === '仍然在役')
@@ -249,6 +257,50 @@ onMounted(async () => {
   color: rgba(255,255,255,0.1);
   flex-shrink: 0;
 }
+
+/* ========== Light mode ========== */
+.current-page.theme-light {
+  background: #f5f7fb;
+  color: #1d2129;
+}
+.theme-light .bg-dots {
+  background-image: radial-gradient(rgba(0,0,0,0.025) 0.5px, transparent 0.5px);
+}
+.theme-light .page-nav {
+  background: rgba(255,255,255,0.9);
+  border-bottom-color: rgba(0,0,0,0.06);
+}
+.theme-light .nav-back { color: rgba(0,0,0,0.35); }
+.theme-light .nav-back:hover {
+  color: #0f9b8e;
+  background: rgba(15,155,142,0.06);
+}
+.theme-light .nav-count { color: rgba(0,0,0,0.15); }
+.theme-light .hero-desc { color: rgba(0,0,0,0.2); }
+.theme-light .member-card {
+  background: #fff;
+  border-color: rgba(0,0,0,0.06);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.02);
+}
+.theme-light .member-card:hover {
+  border-color: rgba(15,155,142,0.15);
+  background: rgba(15,155,142,0.02);
+  box-shadow: 0 2px 12px rgba(15,155,142,0.04);
+}
+.theme-light .mc-name { color: #1d2129; }
+.theme-light .mc-avatar {
+  background: linear-gradient(135deg, rgba(15,155,142,0.08), rgba(230,168,23,0.05));
+  border-color: rgba(15,155,142,0.08);
+}
+.theme-light .mc-avatar-text { color: rgba(15,155,142,0.5); }
+.theme-light .mc-remark { color: rgba(0,0,0,0.2); }
+.theme-light .mc-sex { color: rgba(0,0,0,0.08); }
+.theme-light .tag-year {
+  background: rgba(0,0,0,0.03);
+  color: rgba(0,0,0,0.25);
+  border-color: rgba(0,0,0,0.04);
+}
+.theme-light .empty-state p { color: rgba(0,0,0,0.2); }
 
 @media (max-width: 600px) {
   .page-nav { padding: 12px 16px; }
