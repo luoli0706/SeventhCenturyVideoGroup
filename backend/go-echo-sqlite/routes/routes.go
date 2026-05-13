@@ -31,4 +31,12 @@ func InitRoutes(e *echo.Echo) {
 	api.DELETE("/member-profile/:cn", controllers.RequireMember(controllers.DeleteMemberProfile))
 	api.GET("/member-profile/:cn/exists", controllers.CheckMemberProfileExists)
 
+	// 知识库管理（需要成员权限）
+	kb := api.Group("/kb", controllers.RequireMember)
+	kb.GET("/tree", controllers.KBTree)
+	kb.GET("/read", controllers.KBRead)
+	kb.POST("/save", controllers.KBSave)
+	kb.POST("/create", controllers.KBCreate)
+	kb.DELETE("/delete", controllers.KBDelete)
+
 }

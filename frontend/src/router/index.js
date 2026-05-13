@@ -24,6 +24,7 @@ import ChangePassword from '../views/ChangePassword.vue'
 import AdminLogin from '../views/AdminLogin.vue'
 import MemoryCodeView from '../views/MemoryCodeView.vue'
 import AIAssistant from '../views/AIAssistant.vue'
+import KBManager from '../views/KBManager.vue'
 const routes = [
   // 登录相关页面
   { path: '/', component: LoginChoice },
@@ -47,6 +48,13 @@ const routes = [
   { path: '/recruit', component: Recruit },
   { path: '/member/:name', component: MemberProfile },
   { path: '/ai-assistant', component: AIAssistant },
+
+  // 知识库管理（仅成员）
+  {
+    path: '/kb-manage',
+    component: KBManager,
+    beforeEnter: [requireMember]
+  },
 
   // 需要成员权限的路由
   {

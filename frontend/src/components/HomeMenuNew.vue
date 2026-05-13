@@ -33,6 +33,26 @@
       </router-link>
     </div>
     
+    <!-- 仅社团成员可见的功能 -->
+    <div v-if="isMember" style="margin-top: 1em;">
+      <a-space direction="horizontal" size="middle">
+        <router-link to="/member-info">
+          <a-button
+            :type="isDark ? 'secondary' : 'primary'"
+            :class="isDark ? 'dark-btn' : 'light-btn'"
+            size="small"
+          >登记信息</a-button>
+        </router-link>
+        <router-link to="/kb-manage">
+          <a-button
+            :type="isDark ? 'secondary' : 'primary'"
+            :class="isDark ? 'dark-btn' : 'light-btn'"
+            size="small"
+          >知识库管理</a-button>
+        </router-link>
+      </a-space>
+    </div>
+
     <!-- 用户状态和登出按钮 -->
     <div class="user-status" style="margin-top: 20px;">
       <a-space direction="vertical" size="small">
