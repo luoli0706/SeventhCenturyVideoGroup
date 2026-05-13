@@ -107,8 +107,8 @@
               placeholder="选择模型"
               class="model-selector"
             >
-              <a-option value="deepseek-v3">DeepSeek-V3</a-option>
-              <a-option value="deepseek-r1">DeepSeek-R1</a-option>
+              <a-option value="deepseek-v4-flash">DeepSeek-V4-Flash</a-option>
+              <a-option value="deepseek-v4-pro">DeepSeek-V4-Pro</a-option>
               <a-option value="gemini-2.5-pro" disabled class="disabled-option">
                 Gemini 2.5 Pro (开发中)
               </a-option>
@@ -166,7 +166,7 @@ const isDark = ref(false)
 const messages = ref([])
 const inputMessage = ref('')
 const isLoading = ref(false)
-const selectedModel = ref('deepseek-v3')
+const selectedModel = ref('deepseek-v4-flash')
 const messagesArea = ref(null)
 const sessionId = ref('')
 
@@ -274,8 +274,7 @@ const handleSend = async (event) => {
   if (!canSend.value) return
 
   const message = inputMessage.value.trim()
-  const userInfo = auth.getUserInfo()
-  
+
   // 添加用户消息
   const userMessage = {
     id: Date.now(),
@@ -294,90 +293,20 @@ const handleSend = async (event) => {
   isLoading.value = true
 
   try {
-    // 通过RAG API处理用户查询，获得增强的查询和相关文档
-    console.log('开始RAG处理...')
-    const ragResponse = await fetch('/api/rag/query', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query: message,
-        top_k: 5,
-        category: '' // 可以根据需要设置类别过滤
-      })
-    })
+		// 发送请求到AI后端（集成RAG检索与流式生成）
+		console.log('开始AI请求...')
 
-    let enhancedQuery = message
-    let relevantChunks = []
-    
-    if (ragResponse.ok) {
-      const ragData = await ragResponse.json()
-      console.log('RAG处理结果:', ragData)
-      
-      // 获取相关文档块
-      if (ragData.relevant_chunks && ragData.relevant_chunks.length > 0) {
-        relevantChunks = ragData.relevant_chunks
-        console.log('找到相关文档:', relevantChunks.length, '个')
-        
-        // 如果找到相关文档，添加参考资料提示消息
-        const referenceMessage = {
-          id: Date.now() + 0.5,
-          role: 'system',
-          content: `📚 已为您检索 ${relevantChunks.length} 条相关资料（相似度: ${(relevantChunks[0].similarity * 100).toFixed(0)}%）`,
-          references: relevantChunks.slice(0, 3), // 显示前3条
-          timestamp: new Date()
-        }
-        messages.value.push(referenceMessage)
-        await nextTick()
-        scrollToBottom()
-      }
-      
-      // 使用RAG增强后的查询
-      if (ragData.enhanced_query && ragData.enhanced_query.trim()) {
-        enhancedQuery = ragData.enhanced_query
-        console.log('使用RAG增强查询（已包含相关文档）')
-      }
-    } else {
-      console.warn('RAG处理失败，使用原始查询:', ragResponse.status)
-    }
-
-    // 发送处理后的查询到n8n容器
-    console.log('发送到n8n...')
-    
-    // 构建压缩提示词
-    const compressionHint = `
-【输出优化要求】
-请在回答时进行适度的语义压缩：
-1. 移除冗余和重复表述，但保留所有关键信息
-2. 合并相似的步骤或建议
-3. 使用简洁的表达方式
-4. 保留所有重要警告、版权提醒和注意事项
-5. 目标：将内容压缩到原文本的 70-85% 长度`
-
-    // 将压缩提示加入到增强查询中
-    const queryWithCompression = enhancedQuery + '\n' + compressionHint
-    
-    const apiUrl = import.meta.env.DEV 
-      ? '/api/n8n/webhook/ai-chat'  // 开发环境：使用webhook-test
-      : 'http://localhost:5678/webhook/ai-chat'  // 生产环境：使用webhook
-      
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'text/plain',
-      },
-      body: JSON.stringify({
-        sessionId: sessionId.value,
-        cn: userInfo?.cn || 'unknown',
-        message: queryWithCompression, // 使用RAG增强查询 + 压缩提示
-        originalMessage: message, // 保留原始用户消息用于记录
-        model: selectedModel.value,
-        timestamp: new Date().toISOString(),
-        relevantChunks: relevantChunks // 传递相关文档供后端使用
-      })
-    })
+		const response = await fetch('/api/ai/chat', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({
+				message: message,
+				sessionId: sessionId.value,
+				model: selectedModel.value,
+			})
+		})
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
@@ -428,6 +357,18 @@ const handleSend = async (event) => {
               }
             } else if (data.type === 'begin') {
               console.log('开始接收AI响应')
+            } else if (data.type === 'references' && data.chunks) {
+              // 显示参考资料
+              const refMessage = {
+                id: Date.now() + 0.5,
+                role: 'system',
+                content: `📚 已为您检索 ${data.chunks.length} 条相关资料`,
+                references: data.chunks.slice(0, 3),
+                timestamp: new Date()
+              }
+              messages.value.push(refMessage)
+              await nextTick()
+              scrollToBottom()
             } else if (data.type === 'end') {
               console.log('AI响应结束')
             }
@@ -470,13 +411,13 @@ const handleSend = async (event) => {
     
     // 根据错误类型提供更具体的错误信息
     if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      errorContent = '无法连接到AI服务，请检查n8n服务是否正在运行。'
+      errorContent = '无法连接到AI服务，请检查后端服务是否正在运行。'
     } else if (error.message.includes('CORS')) {
-      errorContent = 'CORS跨域错误，请检查n8n webhook配置。'
+      errorContent = 'CORS跨域错误，请检查AI服务配置。'
     } else if (error.message.includes('500')) {
       errorContent = 'AI服务内部错误，请稍后再试或联系管理员。'
     } else if (error.message.includes('404')) {
-      errorContent = 'AI服务端点未找到，请检查webhook配置。'
+      errorContent = 'AI服务端点未找到，请检查服务配置。'
     } else if (error.message.includes('JSON')) {
       errorContent = '数据格式解析错误，AI服务可能正在处理中，请稍后再试。'
     }

@@ -22,7 +22,7 @@
       <div v-else class="profile-content">
         <div class="profile-item" v-if="profileData.Avatar">
           <strong>头像：</strong>
-          <img :src="`${apiBaseUrl}/${profileData.Avatar}`" alt="头像" class="avatar-img" />
+          <img :src="`https://7thcv.cn/${profileData.Avatar}`" alt="头像" class="avatar-img" />
         </div>
         <div class="profile-item" v-if="profileData.BiliUID">
           <strong>B站UID：</strong>{{ profileData.BiliUID }}
@@ -49,7 +49,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import axios from 'axios'
+import api from '../utils/api'
 import { auth } from '../utils/auth'
 
 const router = useRouter()
@@ -59,9 +59,6 @@ const memberInfo = ref({})
 const profileExists = ref(false)
 const profileData = ref({})
 const canEdit = ref(false) // 新增：是否可以编辑的权限标志
-
-// 定义API基础URL
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
 
 function goBack() {
   router.back()
@@ -112,7 +109,7 @@ function handleEditProfile() {
 // 检查个人主页是否存在
 async function checkProfileExists() {
   try {
-    const res = await axios.get(`${apiBaseUrl}/api/member-profile/${encodeURIComponent(memberName.value)}/exists`)
+    const res = await api.get(`/api/member-profile/${encodeURIComponent(memberName.value)}/exists`)
     return res.data.exists
   } catch (e) {
     return false
@@ -122,7 +119,7 @@ async function checkProfileExists() {
 // 获取个人主页数据
 async function getProfileData() {
   try {
-    const res = await axios.get(`${apiBaseUrl}/api/member-profile/${encodeURIComponent(memberName.value)}`)
+    const res = await api.get(`/api/member-profile/${encodeURIComponent(memberName.value)}`)
     return res.data
   } catch (e) {
     return null
@@ -137,7 +134,7 @@ onMounted(async () => {
   
   // 获取成员基本信息
   try {
-    const res = await axios.get(`${apiBaseUrl}/api/club_members`)
+    const res = await api.get('/api/club_members')
     const member = res.data.find(m => m.CN === memberName.value)
     if (member) {
       memberInfo.value = member

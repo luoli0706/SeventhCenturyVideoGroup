@@ -32,7 +32,7 @@
 <script setup>
 import { reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import api from '../utils/api'
 
 const router = useRouter()
 const form = reactive({
@@ -48,7 +48,7 @@ function goBack() {
 
 async function handleSubmit() {
   try {
-    await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/activities`, form)
+    await api.post('/api/activities', form)
     router.push('/events')
   } catch (e) {
     alert('提交失败')

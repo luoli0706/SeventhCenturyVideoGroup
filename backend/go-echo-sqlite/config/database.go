@@ -39,7 +39,7 @@ func InitDB() {
 	fmt.Println("Database connected successfully")
 
 	// 自动迁移模型
-	err = DB.AutoMigrate(&models.ClubMember{}, &models.Activity{}, &models.MemberProfile{}, &models.MemoryCode{}, &models.Document{}, &models.DocumentChunk{})
+	err = DB.AutoMigrate(&models.ClubMember{}, &models.Activity{}, &models.MemberProfile{}, &models.MemoryCode{})
 	if err != nil {
 		fmt.Printf("Migration error: %v\n", err)
 		panic("failed to migrate database")

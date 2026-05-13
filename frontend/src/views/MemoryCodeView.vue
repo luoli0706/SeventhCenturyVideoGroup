@@ -37,7 +37,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import api from '../utils/api'
 import ThemeSwitcherIcon from '../components/ThemeSwitcherIcon.vue'
 
 const router = useRouter()
@@ -51,8 +51,7 @@ onMounted(async () => {
 
 const fetchMemoryCode = async () => {
   try {
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
-    const response = await axios.get(`${apiBaseUrl}/api/memory-code`)
+    const response = await api.get('/api/memory-code')
     
     memoryCode.value = response.data.code
     codeDate.value = response.data.date

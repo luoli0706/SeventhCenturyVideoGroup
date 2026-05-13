@@ -79,7 +79,7 @@
 <script setup>
 import { reactive, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import api from '../utils/api'
 import ThemeSwitcherIcon from '../components/ThemeSwitcherIcon.vue'
 
 const router = useRouter()
@@ -90,9 +90,6 @@ const form = reactive({
   password: '',
   rememberMe: false
 })
-
-// 定义API基础URL
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
 
 onMounted(() => {
   // 如果记住了密码，从localStorage加载
@@ -116,7 +113,7 @@ const handleLogin = async () => {
   loading.value = true
   
   try {
-    const response = await axios.post(`${apiBaseUrl}/api/login`, {
+    const response = await api.post('/api/login', {
       cn: form.cn,
       password: form.password
     })

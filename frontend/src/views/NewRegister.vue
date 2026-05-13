@@ -127,7 +127,7 @@
 <script setup>
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import api from '../utils/api'
 import ThemeSwitcherIcon from '../components/ThemeSwitcherIcon.vue'
 
 const router = useRouter()
@@ -146,9 +146,6 @@ const form = reactive({
   status: '',
   remark: ''
 })
-
-// 定义API基础URL
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
 
 const handleRegister = async () => {
   // 表单验证
@@ -170,7 +167,7 @@ const handleRegister = async () => {
   loading.value = true
   
   try {
-    await axios.post(`${apiBaseUrl}/api/register`, {
+    await api.post('/api/register', {
       cn: form.cn,
       password: form.password,
       sex: form.sex,

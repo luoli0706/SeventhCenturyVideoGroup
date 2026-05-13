@@ -27,7 +27,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import api from '../../utils/api'
 
 const router = useRouter()
 const members = ref([])
@@ -38,7 +38,7 @@ function goBack() {
 
 onMounted(async () => {
   try {
-    const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/club_members`)
+    const res = await api.get('/api/club_members')
     members.value = res.data
   } catch (e) {
     members.value = []

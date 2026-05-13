@@ -46,12 +46,9 @@
 <script setup>
 import { reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import api from '../utils/api'
 
 const router = useRouter()
-
-// 定义API基础URL
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
 
 const form = reactive({
   cn: '',
@@ -90,7 +87,7 @@ async function handleSubmit() {
   try {
     const token = localStorage.getItem('token')
     
-    await axios.post(`${apiBaseUrl}/api/club_members`, form, {
+    await api.post('/api/club_members', form, {
       headers: {
         'Authorization': `Bearer ${token}`
       }

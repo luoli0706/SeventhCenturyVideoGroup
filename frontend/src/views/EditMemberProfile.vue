@@ -65,7 +65,7 @@
 <script setup>
 import { reactive, ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import axios from 'axios'
+import api from '../utils/api'
 import { auth } from '../utils/auth'
 
 const router = useRouter()
@@ -73,9 +73,6 @@ const route = useRoute()
 const memberName = ref('')
 const avatarFileList = ref([])
 const currentAvatarFile = ref(null) // 新增：存储当前选中的文件
-
-// 定义API基础URL
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
 
 const form = reactive({
   biliUID: '',
@@ -120,8 +117,8 @@ async function handleSubmit() {
       console.log('没有文件需要上传')
     }
     
-    const res = await axios.post(
-      `${apiBaseUrl}/api/member-profile/${encodeURIComponent(memberName.value)}`,
+    const res = await api.post(
+      `/api/member-profile/${encodeURIComponent(memberName.value)}`,
       formData,
       {
         headers: {
@@ -171,7 +168,7 @@ onMounted(() => {
 // 加载已有的个人主页数据
 async function loadExistingProfile() {
   try {
-    const res = await axios.get(`${apiBaseUrl}/api/member-profile/${encodeURIComponent(memberName.value)}`)
+    const res = await api.get(`/api/member-profile/${encodeURIComponent(memberName.value)}`)
     const data = res.data
     
     form.biliUID = data.BiliUID || ''
@@ -185,7 +182,7 @@ async function loadExistingProfile() {
         uid: '-1',
         name: '当前头像',
         status: 'done',
-        url: `${apiBaseUrl}/${data.Avatar}`
+        url: `/${data.Avatar}`
       }]
     }
   } catch (e) {

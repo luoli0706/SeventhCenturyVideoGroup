@@ -66,7 +66,7 @@
 <script setup>
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import api from '../utils/api'
 import ThemeSwitcherIcon from '../components/ThemeSwitcherIcon.vue'
 
 const router = useRouter()
@@ -92,8 +92,7 @@ const handleChangePassword = async () => {
 
   loading.value = true
   try {
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
-    const response = await axios.post(`${apiBaseUrl}/api/change-password`, {
+    const response = await api.post('/api/change-password', {
       cn: form.cn,
       old_password: form.oldPassword,
       new_password: form.newPassword

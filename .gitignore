@@ -21,7 +21,12 @@ frontend/.env.production.local
 # Backend build outputs
 backend/go-echo-sqlite/svcg-server
 backend/go-echo-sqlite/svcg-server.exe
+backend/go-echo-sqlite/scvg
 backend/svcg-backend-windows/
+
+# Claude Code working files
+.agents/
+skills-lock.json
 
 # Database files
 *.db
