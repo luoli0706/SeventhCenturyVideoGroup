@@ -2,10 +2,11 @@
   <a-select
     v-model="selectedRoute"
     placeholder="搜索路由入口..."
-    style="width: 300px; margin-bottom: 24px;"
+    :style="{ width: '320px', marginBottom: '24px' }"
     allow-search
     allow-clear
     @change="handleRouteChange"
+    :class="$style.searchBox"
   >
     <a-option
       v-for="route in routeOptions"
@@ -37,7 +38,6 @@ const routeOptions = ref([
   { label: '上传活动', value: '/events/upload' }
 ])
 
-// 加载成员列表到搜索选项
 onMounted(async () => {
   try {
     const res = await api.get('/api/club_members')
@@ -58,3 +58,9 @@ function handleRouteChange(value) {
   }
 }
 </script>
+
+<style module>
+.searchBox {
+  transition: all 0.25s ease;
+}
+</style>

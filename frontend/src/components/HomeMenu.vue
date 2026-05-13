@@ -22,12 +22,6 @@
       
       <!-- 仅社团成员可见的功能 -->
       <template v-if="isMember">
-        <router-link to="/member-info">
-          <a-button
-            :type="isDark ? 'secondary' : 'primary'"
-            :class="isDark ? 'dark-btn' : 'light-btn'"
-          >登记信息</a-button>
-        </router-link>
         <router-link to="/kb-manage">
           <a-button
             :type="isDark ? 'secondary' : 'primary'"

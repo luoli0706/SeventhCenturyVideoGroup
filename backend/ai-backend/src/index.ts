@@ -3,7 +3,9 @@ import cors from 'cors'
 import { env } from './config/env.js'
 import { KnowledgeNavigator } from './services/kb-navigator.js'
 import { AgentGraph } from './services/agent-graph.js'
+import { ChatHistory } from './services/chat-history.js'
 import { createChatRouter } from './routes/chat.js'
+import { createHistoryRouter } from './routes/history.js'
 
 async function bootstrap() {
   console.log('=== SCVG AI Backend (ReACT + B+ Tree KB) ===')
@@ -16,6 +18,12 @@ async function bootstrap() {
   const stats = navigator.getStats()
   console.log(`KB: ${stats.directories} sections, ${stats.files} files`)
 
+  // Initialize chat history (SQLite)
+  console.log('\n--- Initializing Chat History ---')
+  const history = new ChatHistory()
+  const sessionCount = history.getSessions().length
+  console.log(`Chat history: ${sessionCount} previous sessions`)
+
   // Create the ReACT agent
   const agent = new AgentGraph(navigator)
 
@@ -25,12 +33,14 @@ async function bootstrap() {
   app.use(express.json({ limit: '1mb' }))
 
   // Mount routes
-  app.use('/api/ai', createChatRouter(agent))
+  app.use('/api/ai', createChatRouter(agent, history))
+  app.use('/api/ai', createHistoryRouter(history))
 
   // Start server
   app.listen(env.PORT, () => {
     console.log(`\n✓ AI Backend running at http://localhost:${env.PORT}`)
     console.log(`  API endpoint: POST http://localhost:${env.PORT}/api/ai/chat`)
+    console.log(`  History API:  GET  http://localhost:${env.PORT}/api/ai/sessions`)
     console.log(`  Health check: GET  http://localhost:${env.PORT}/api/ai/health`)
     console.log('================================================\n')
   })

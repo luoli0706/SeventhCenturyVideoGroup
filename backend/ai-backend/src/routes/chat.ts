@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express'
 import { AgentGraph } from '../services/agent-graph.js'
+import { ChatHistory } from '../services/chat-history.js'
 import { ChatRequest } from '../types/index.js'
 
 interface SessionMemory {
@@ -8,7 +9,7 @@ interface SessionMemory {
 
 const sessions = new Map<string, SessionMemory>()
 
-export function createChatRouter(agent: AgentGraph): Router {
+export function createChatRouter(agent: AgentGraph, history: ChatHistory): Router {
   const router = Router()
 
   // POST /api/ai/chat - streaming chat with ReACT navigation
@@ -31,24 +32,51 @@ export function createChatRouter(agent: AgentGraph): Router {
 
     res.write(JSON.stringify({ type: 'begin' }) + '\n')
 
+    // Accumulate assistant response for persistence
+    let fullAssistantContent = ''
+
     try {
+      // Ensure session exists in SQLite
+      history.createSession(sid)
+
       // Get or create session memory
       if (!sessions.has(sid)) {
         sessions.set(sid, { history: [] })
       }
       const session = sessions.get(sid)!
 
+      // Save user message to SQLite
+      history.addMessage(sid, 'user', message)
+
       // Run the ReACT agent
-      const history = session.history.slice(-6) // last 3 turns
-      const generator = agent.processQuery(message, history)
+      const historyMessages = session.history.slice(-6) // last 3 turns
+      const generator = agent.processQuery(message, historyMessages)
 
       for await (const event of generator) {
         res.write(JSON.stringify(event) + '\n')
+        // Accumulate content for persistence
+        if (event.type === 'item' && event.content) {
+          fullAssistantContent += event.content
+        }
       }
 
-      // Save to history
+      // Save assistant response to in-memory history
       session.history.push({ role: 'user', content: message })
-      // The assistant response will be accumulated in a real implementation
+      if (fullAssistantContent) {
+        session.history.push({ role: 'assistant', content: fullAssistantContent })
+      }
+
+      // Save assistant response to SQLite
+      if (fullAssistantContent) {
+        history.addMessage(sid, 'assistant', fullAssistantContent)
+      }
+
+      // Auto-title: use first user message as session title
+      const msgCount = session.history.length
+      if (msgCount <= 2) {
+        const title = message.length > 40 ? message.substring(0, 40) + '…' : message
+        history.updateSessionTitle(sid, title)
+      }
 
       res.write(JSON.stringify({ type: 'end' }) + '\n')
 
