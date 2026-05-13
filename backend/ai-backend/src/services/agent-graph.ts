@@ -1,7 +1,6 @@
+import OpenAI from 'openai'
 import { env } from '../config/env.js'
-import { AgentState, ChunkResult } from '../types/index.js'
-import { VectorStore } from './vector-store.js'
-import { EmbeddingService } from './embedding-service.js'
+import { KnowledgeNavigator } from './kb-navigator.js'
 
 const SYSTEM_PROMPT = `你是视小姬，柒世纪视频组（MAD/MMD创作研究社团）的AI助手。你热情、专业，使用简体中文交流。
 
@@ -28,50 +27,192 @@ const SYSTEM_PROMPT = `你是视小姬，柒世纪视频组（MAD/MMD创作研�
 
 请用温暖专业的语气回答用户的问题。`
 
+const NAVIGATOR_PROMPT = `你是一个知识库导航系统。你的任务是从标题树中选择与用户问题最相关的节点。
+
+标题树（仅标题层级，无正文内容）：
+{{INDEX}}
+
+用户问题：{{QUERY}}
+{{EXISTING_CONTEXT}}
+
+规则：
+1. 选择最匹配用户问题的标题节点，优先选择深度更深（更具体）的节点
+2. 如果问题涉及多个方面，可以输出多个标题
+3. 输出标题文本必须与标题树中的完全一致
+4. 如果已加载内容足够回答，输出 DONE
+5. 如果问题与知识库完全无关，输出 SKIP_KB
+6. 最多选择3个最相关的标题
+
+输出格式：每行一个标题（例如：MAD 知识核心 > 主要分类）`
+
 export class AgentGraph {
-  private vectorStore: VectorStore
-  private embeddingService: EmbeddingService
+  private openai: OpenAI
+  private navigator: KnowledgeNavigator
 
-  constructor(vectorStore: VectorStore, embeddingService: EmbeddingService) {
-    this.vectorStore = vectorStore
-    this.embeddingService = embeddingService
+  constructor(navigator: KnowledgeNavigator) {
+    this.navigator = navigator
+    this.openai = new OpenAI({
+      apiKey: env.DEEPSEEK_API_KEY,
+      baseURL: env.DEEPSEEK_BASE_URL,
+    })
   }
 
   /**
-   * Run the retrieval node: embed query and search for relevant chunks.
+   * Navigate the knowledge base: LLM picks relevant sections from the index.
+   * Returns resolved heading paths (may be empty if KB is irrelevant).
    */
-  async retrieve(query: string): Promise<{ retrievedContext: string; relevantChunks: ChunkResult[] }> {
-    console.log(`[Agent] Retrieving context for: "${query.substring(0, 50)}..."`)
-    const queryEmbedding = await this.embeddingService.generateEmbedding(query)
-    const chunks = this.vectorStore.searchSimilarChunks(queryEmbedding, 5)
-    const context = this.vectorStore.formatContext(chunks)
-    return { retrievedContext: context, relevantChunks: chunks }
+  async navigate(query: string, existingContext: string[]): Promise<string[]> {
+    const index = this.navigator.getIndex()
+    const existingBlock = existingContext.length > 0
+      ? `\n已加载的内容节点：${existingContext.map((c, i) => {
+          const title = c.split('\n')[0]?.substring(0, 80) || `[节点${i+1}]`
+          return `\n节点${i+1}: ${title}`
+        }).join('')}\n\n如果已有内容足够，输出 DONE。如果需要补充，继续选择。`
+      : ''
+
+    const prompt = NAVIGATOR_PROMPT
+      .replace('{{INDEX}}', index)
+      .replace('{{QUERY}}', query)
+      .replace('{{EXISTING_CONTEXT}}', existingBlock)
+
+    const response = await this.openai.chat.completions.create({
+      model: env.DEEPSEEK_CHAT_MODEL,
+      messages: [
+        { role: 'system', content: '你是一个精确的知识库导航系统，只输出标题路径。' },
+        { role: 'user', content: prompt },
+      ],
+      temperature: 0.1,
+      max_tokens: 512,
+    })
+
+    const content = response.choices[0]?.message?.content || ''
+    const lines = content.split('\n')
+      .map(l => l.trim())
+      .filter(l => l && !l.startsWith('```') && !l.startsWith('DONE') && !l.startsWith('SKIP'))
+
+    if (lines.length === 0) return []
+
+    // Resolve each line to a valid heading path
+    const resolved: string[] = []
+    for (const line of lines) {
+      const heading = this.navigator.findClosestHeading(line)
+      if (heading && !resolved.includes(heading)) {
+        resolved.push(heading)
+      }
+    }
+
+    if (resolved.length > 0) {
+      console.log(`[Agent] Navigated → ${resolved.length} section(s): ${resolved.join(', ')}`)
+    } else {
+      console.log('[Agent] Navigation: no matching sections found (LLM output will be used as-is)')
+    }
+
+    return resolved
   }
 
   /**
-   * Build the messages array for the LLM call.
+   * Load content for the given heading paths. Returns a formatted context string.
    */
-  buildMessages(query: string, context: string, model?: string) {
-    const contextBlock = context || '（未找到相关参考文档）'
-
-    const userPrompt = `以下是检索到的相关知识库内容：
-
-${contextBlock}
-
-请基于以上知识回答以下问题（如果知识库中没有相关信息，请如实告知）：
-
-${query}`
-
-    return [
-      { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: userPrompt },
-    ] as const
+  loadContext(headingPaths: string[]): string {
+    const parts: string[] = []
+    for (const path of headingPaths) {
+      const content = this.navigator.loadSubtree(path)
+      if (content.trim()) {
+        parts.push(content.trim())
+      }
+    }
+    return parts.join('\n\n---\n\n')
   }
 
   /**
-   * Get the system prompt for streaming responses (used by the route handler).
+   * Full ReACT pipeline: navigate → navigate again (if needed) → load → generate.
+   * Returns a stream of the final response.
+   *
+   * ReACT rounds:
+   *   Round 1: navigate (pick sections from index)
+   *   Round 2: navigate again (pick additional sections if needed)
+   *   Load all selected sections → generate streaming response.
    */
-  getSystemPrompt(): string {
-    return SYSTEM_PROMPT
+  async* processQuery(
+    query: string,
+    history: { role: 'system' | 'user' | 'assistant'; content: string }[]
+  ): AsyncGenerator<{ type: string; content?: string; paths?: string[] }> {
+    console.log(`[Agent] Processing query: "${query.substring(0, 60)}..."`)
+
+    // === ReACT Round 1: Initial navigation ===
+    const paths1 = await this.navigate(query, [])
+    const allPaths = [...paths1]
+
+    // === ReACT Round 2: Optional supplementary navigation ===
+    if (allPaths.length > 0) {
+      const loadedParts = allPaths.map(p => {
+        const c = this.navigator.loadSubtree(p)
+        return c.substring(0, 100)
+      })
+      const paths2 = await this.navigate(query, loadedParts)
+      for (const p of paths2) {
+        if (!allPaths.includes(p)) allPaths.push(p)
+      }
+    }
+
+    // === Load all selected content ===
+    let contextBlock = ''
+    const loadedPaths: string[] = []
+
+    if (allPaths.length > 0) {
+      contextBlock = this.loadContext(allPaths)
+      loadedPaths.push(...allPaths)
+    }
+
+    // Yield references for frontend display
+    if (loadedPaths.length > 0) {
+      yield {
+        type: 'references',
+        paths: loadedPaths,
+      }
+    }
+
+    // === Generate streaming response ===
+    const contextSection = contextBlock.trim()
+      ? `\n以下是与问题相关的知识库内容（可能不完整，如有遗漏请如实告知）：\n\n${contextBlock}\n`
+      : ''
+
+    const historyMessages = history.map(m => ({
+      role: m.role as 'system' | 'user' | 'assistant',
+      content: m.content,
+    }))
+
+    const userContent = contextSection
+      ? `${contextSection}\n请基于以上知识回答：\n\n${query}`
+      : query
+
+    const stream = await this.openai.chat.completions.create({
+      model: env.DEEPSEEK_CHAT_MODEL,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        ...historyMessages.slice(-6), // last 3 turns of context
+        { role: 'user', content: userContent },
+      ],
+      stream: true,
+      max_tokens: 4096,
+      temperature: 0.7,
+    })
+
+    let hasContent = false
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || ''
+      if (content) {
+        hasContent = true
+        yield { type: 'item', content }
+      }
+    }
+
+    if (!hasContent) {
+      yield { type: 'item', content: '抱歉，我暂时无法回应，请稍后再试。' }
+    }
+  }
+
+  getNavigator(): KnowledgeNavigator {
+    return this.navigator
   }
 }

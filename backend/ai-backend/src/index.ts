@@ -1,28 +1,23 @@
 import express from 'express'
 import cors from 'cors'
 import { env } from './config/env.js'
-import { DocumentLoader } from './services/document-loader.js'
-import { EmbeddingService } from './services/embedding-service.js'
-import { VectorStore } from './services/vector-store.js'
+import { KnowledgeNavigator } from './services/kb-navigator.js'
 import { AgentGraph } from './services/agent-graph.js'
 import { createChatRouter } from './routes/chat.js'
 
 async function bootstrap() {
-  console.log('=== SCVG AI Backend (TypeScript + file-based RAG) ===')
+  console.log('=== SCVG AI Backend (ReACT + B+ Tree KB) ===')
   console.log(`Starting on port ${env.PORT}...`)
 
-  // Initialize core services
-  const loader = new DocumentLoader()
-  const embedder = new EmbeddingService()
-  const store = new VectorStore(loader, embedder, env.CACHE_PATH)
+  // Initialize knowledge base navigator
+  console.log('\n--- Initializing Knowledge Base ---')
+  const navigator = new KnowledgeNavigator(env.KNOWLEDGE_BASE_PATH)
+  navigator.initialize()
+  const stats = navigator.getStats()
+  console.log(`KB: ${stats.directories} sections, ${stats.files} files`)
 
-  // Build or load vector store
-  console.log('\n--- Initializing Vector Store ---')
-  await store.initialize(env.KNOWLEDGE_BASE_PATH)
-  console.log(`Documents: ${store.getDocumentCount()}, Chunks: ${store.getChunkCount()}`)
-
-  // Create the agent
-  const agent = new AgentGraph(store, embedder)
+  // Create the ReACT agent
+  const agent = new AgentGraph(navigator)
 
   // Set up Express
   const app = express()
