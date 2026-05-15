@@ -52,6 +52,18 @@ skills-lock.json
 ehthumbs.db
 Thumbs.db
 
+# AI Backend runtime data
+backend/ai-backend/data/
+
+# Build artifacts
+backend/ai-backend/dist/
+backend/ai-backend/build/
+
+# SQLite WAL files (runtime)
+*.db-shm
+*.db-wal
+*.db-journal
+
 # Logs
 logs/
 *.log
@@ -112,8 +124,9 @@ go.sum.backup
 # Go workspace file
 go.work
 
-# Air live reload
-tmp/
+# TypeScript build info
+*.tsbuildinfo
+
 
 # Deployment files
 docker-compose.override.yml
