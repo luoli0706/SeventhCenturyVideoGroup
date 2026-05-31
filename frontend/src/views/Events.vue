@@ -70,7 +70,7 @@
             </div>
             <div class="tl-body">
               <h3 class="tl-title">{{ event.Name }}</h3>
-              <p class="tl-content">{{ event.Content }}</p>
+              <img v-if="event.Image" :src="event.Image" alt="活动图片" class="tl-image" @error="e => e.target.style.display='none'" />
               <div class="tl-footer">
                 <span class="tl-timeago">{{ timeAgo(event.Time) }}</span>
                 <router-link v-if="event.Detail" :to="`/events/${event.ID}`" class="tl-detail-link">
@@ -446,12 +446,14 @@ onMounted(async () => {
   color: #fff;
 }
 
-.tl-content {
-  font-size: 0.88rem;
-  line-height: 1.6;
-  color: rgba(255,255,255,0.4);
-  margin: 0 0 10px;
+.tl-image {
+  width: 100%; max-height: 200px;
+  object-fit: cover; border-radius: 8px;
+  margin: 8px 0 10px;
+  border: 1px solid rgba(255,255,255,0.03);
+  transition: transform 0.35s ease;
 }
+.tl-card:hover .tl-image { transform: scale(1.01); }
 
 .tl-footer {
   display: flex;
@@ -525,7 +527,7 @@ onMounted(async () => {
   background: rgba(15,155,142,0.015);
 }
 .theme-light .tl-title { color: #1d2129; }
-.theme-light .tl-content { color: rgba(0,0,0,0.4); }
+.theme-light .tl-image { border-color: rgba(0,0,0,0.04); }
 .theme-light .tl-timeago { color: rgba(0,0,0,0.12); }
 .theme-light .tl-date-num { color: rgba(15,155,142,0.5); }
 .theme-light .tl-date-month { color: rgba(0,0,0,0.12); }
