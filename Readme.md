@@ -8,10 +8,11 @@
 
 | 层级 | 技术 |
 |------|------|
-| **前端** | Vue 3 + Vite + Arco Design Vue + Vue Router |
-| **主后端** | Go + Echo v4 + GORM + SQLite |
-| **AI 后端** | TypeScript + ReACT + B+ Tree KB + DeepSeek API |
-| **代理** | nginx (HTTPS via Let's Encrypt) |
+| **前端（SPA）** | Vue 3 + Vite + Arco Design Vue + Vue Router |
+| **前端（SSR 首页）** | Nuxt 3 + Nitro |
+| **主后端** | Go + Echo v4 + GORM + SQLite（端口 7777） |
+| **AI 后端** | TypeScript + ReACT + B+ Tree KB + DeepSeek API（端口 7778） |
+| **代理** | nginx（HTTPS via Let's Encrypt） |
 | **运行** | systemd 服务托管 |
 
 ---
@@ -20,7 +21,7 @@
 
 ```
 scvg/
-├── frontend/                           # Vue 3 SPA
+├── frontend/                           # Vue 3 SPA（CSR 页面）
 │   ├── src/
 │   │   ├── components/                 # 复用组件
 │   │   ├── router/                     # 路由配置
@@ -32,15 +33,24 @@ scvg/
 │   ├── package.json
 │   └── vite.config.js
 │
+├── Hybrid_scvg/                        # Nuxt 3 SSR 首页
+│   ├── pages/
+│   │   └── index.vue                   # 社团首页（SSR 渲染）
+│   ├── assets/
+│   │   └── main.css                    # 全局样式
+│   ├── nuxt.config.ts                  # Nuxt 配置
+│   ├── package.json
+│   └── .output/                        # 构建产物（node .output/server/index.mjs）
+│
 ├── backend/
 │   ├── go-echo-sqlite/                 # Go 主后端（端口 7777）
 │   │   ├── main.go                     # 入口
 │   │   ├── config/                     # 数据库配置
-│   │   ├── controllers/                # 控制器（auth, member, kb...）
+│   │   ├── controllers/                # 控制器（auth, member, kb, upload…）
 │   │   ├── models/                     # GORM 数据模型
 │   │   ├── routes/                     # 路由注册
 │   │   ├── middleware/                 # JWT 中间件
-│   │   └── services/                   # 服务层（含 KB 同步）
+│   │   └── services/                   # 服务层
 │   │
 │   ├── ai-backend/                     # TypeScript AI 后端（端口 7778）
 │   │   ├── src/
@@ -67,6 +77,27 @@ scvg/
 
 ---
 
+## 混合架构 | Hybrid SSR Architecture
+
+网站的首页（`/`）使用 **Nuxt 3 服务端渲染**，其余页面（`/home`、`/members`、`/events` 等）保持 **Vue 3 SPA 客户端渲染**。
+
+```
+请求 / → nginx → localhost:3000（Nuxt SSR）→ 返回完整 HTML（含 SEO 元数据）
+请求 /home → nginx → /index.html（SPA 入口）→ Vue Router 客户端路由
+请求 /api/* → nginx → localhost:7777（Go 后端 API）
+请求 /api/ai/* → nginx → localhost:7778（AI 后端，流式）
+```
+
+nginx 路由规则：
+- `location = /` → 代理到 Nuxt SSR（端口 3000）
+- `location /` → 返回 SPA 的 `index.html`
+- `location /api/` → 代理到 Go 后端（端口 7777）
+- `location /api/ai/` → 代理到 AI 后端（端口 7778，streaming）
+- `location /_nuxt/` → Nuxt 静态资源
+- `location ^~ /pics/` → 头像 / 活动图片静态文件
+
+---
+
 ## 快速开始 | Getting Started
 
 ### 先决条件 Prerequisites
@@ -75,7 +106,7 @@ scvg/
 - Go 1.18+
 - SQLite 3
 
-### 前端启动 | Frontend
+### 前端（SPA）启动
 
 ```bash
 cd frontend
@@ -83,9 +114,19 @@ npm install
 npm run dev
 ```
 
-访问 [http://localhost:5173](http://localhost:5173)
+开发模式访问 [http://localhost:5173](http://localhost:5173)
 
-### Go 后端启动 | Backend
+### SSR 首页启动
+
+```bash
+cd Hybrid_scvg
+npm install
+npm run dev
+```
+
+SSR 开发模式访问 [http://localhost:3000](http://localhost:3000)
+
+### Go 后端启动
 
 ```bash
 cd backend/go-echo-sqlite
@@ -95,12 +136,11 @@ go run main.go
 
 服务监听 [http://localhost:7777](http://localhost:7777)
 
-### AI 后端启动 | AI Backend
+### AI 后端启动
 
 ```bash
 cd backend/ai-backend
 npm install
-# 配置 .env 文件（参照 .env.example）
 cp .env.example .env
 # 编辑 .env 填入 DEEPSEEK_API_KEY
 npx tsx src/index.ts
@@ -111,25 +151,26 @@ npx tsx src/index.ts
 ### 生产构建 | Production Build
 
 ```bash
+# SPA 前端
 cd frontend
 npm run build
 # 输出到 frontend/dist/
-```
 
-nginx 反向代理配置：
-
-```
-/api/*       → localhost:7777  (Go 后端)
-/api/ai/*    → localhost:7778  (AI 后端，streaming)
+# SSR 首页
+cd Hybrid_scvg
+npm run build
+# 输出到 Hybrid_scvg/.output/
 ```
 
 ---
 
 ## 主要功能 | Features
 
+- **社团首页** — SSR 渲染的社团对外展示页，含成员数据、活动动态
 - **社团成员管理** — 名单浏览（按届/现役）、注册、编辑个人主页
 - **AI 视小姬** — 基于 ReACT + B+ Tree 知识库的智能问答助手，支持流式输出
 - **知识库编辑器** — 在线编辑 AI 知识库 Markdown 文件，支持树形导航、预览
+- **社团活动** — 活动发布、多图片上传、时间线展示
 - **聊天历史** — 每个用户独立的 SQLite 持久化聊天记录
 - **深浅色主题** — 全局 CSS 变量驱动，一键切换
 - **响应式布局** — 移动端适配
@@ -147,7 +188,9 @@ nginx 反向代理配置：
 | POST | /api/register | 成员注册 |
 | POST | /api/login | 登录 |
 | GET/POST/PUT | /api/member-profile/:cn | 个人主页 |
-| POST | /api/upload-avatar | 上传头像 |
+| GET/POST | /api/activities | 活动列表 / 创建 |
+| POST | /api/upload/image | 活动图片上传（支持多张） |
+| POST | /api/upload/delete | 删除已上传的图片 |
 | GET | /api/kb/tree | KB 目录树 |
 | POST | /api/kb/save | 保存 KB 文件 |
 | POST | /api/kb/create | 创建 KB 文件/目录 |
@@ -182,7 +225,10 @@ nginx 反向代理配置：
 - Go 后端：`backend/go-echo-sqlite/config/database.go` — 数据库路径及端口
 - AI 后端：`backend/ai-backend/.env` — DEEPSEEK_API_KEY, KNOWLEDGE_BASE_PATH
 - nginx：`/etc/nginx/conf.d/scvg.conf`
-- systemd：`scvg.service` (Go) + `ai-backend.service` (TypeScript)
+- systemd 服务：
+  - `scvg.service` — Go 后端
+  - `ai-backend.service` — TypeScript AI 后端
+  - `hybrid-scvg-ssr.service` — Nuxt 3 SSR 首页
 
 ---
 
