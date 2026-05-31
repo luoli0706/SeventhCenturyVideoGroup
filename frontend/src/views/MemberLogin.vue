@@ -66,15 +66,6 @@
             </div>
           </div>
 
-          <!-- 人机验证 -->
-          <div class="form-group" v-if="turnstileSiteKey">
-            <CTurnstile
-              :site-key="turnstileSiteKey"
-              @verify="onTsVerify"
-              @expired="onTsExpired"
-            />
-          </div>
-
           <!-- 记住密码 -->
           <div class="form-group checkbox-group">
             <label class="checkbox-label" @click="form.rememberMe = !form.rememberMe">
@@ -123,15 +114,10 @@ import { reactive, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../utils/api'
 import ThemeSwitcherIcon from '../components/ThemeSwitcherIcon.vue'
-import CTurnstile from '../components/CTurnstile.vue'
-
 const router = useRouter()
 const loading = ref(false)
 const showPwd = ref(false)
 const isDark = ref(true)
-const turnstileToken = ref('')
-const turnstileValid = ref(false)
-const turnstileSiteKey = ref('')
 
 const form = reactive({
   cn: '',
@@ -148,8 +134,6 @@ onMounted(() => {
   const observer = new MutationObserver(updateTheme)
   observer.observe(document.body, { attributes: true, attributeFilter: ['arco-theme'] })
 
-  turnstileSiteKey.value = '0x4AAAAAADbJYgDzb_i37Pi-'
-
   const savedCN = localStorage.getItem('savedCN')
   const savedPassword = localStorage.getItem('savedPassword')
   const rememberMe = localStorage.getItem('rememberMe') === 'true'
@@ -161,32 +145,9 @@ onMounted(() => {
   }
 })
 
-function onTsVerify(token) {
-  turnstileToken.value = token
-  turnstileValid.value = false
-  // Verify token via Nuxt Nitro route
-  api.post('/api/turnstile-verify', { token }).then(res => {
-    if (res.data.success) {
-      turnstileValid.value = true
-    }
-  }).catch(() => {
-    turnstileToken.value = ''
-  })
-}
-
-function onTsExpired() {
-  turnstileToken.value = ''
-  turnstileValid.value = false
-}
-
 const handleLogin = async () => {
   if (!form.cn || !form.password) {
     alert('请填写完整的登录信息')
-    return
-  }
-
-  if (turnstileSiteKey.value && !turnstileValid.value) {
-    alert('请完成人机验证')
     return
   }
 
