@@ -61,37 +61,43 @@
             ></textarea>
           </div>
 
-          <!-- 活动图片（选填） -->
+          <!-- 活动图片（选填，可多张） -->
           <div class="form-group">
             <label class="form-label">活动图片 <span class="label-optional">选填</span></label>
             <div class="upload-area" @click="triggerUpload">
               <input
                 ref="fileInput"
                 type="file"
+                multiple
                 accept="image/jpeg,image/png,image/gif,image/webp"
                 @change="handleFileSelect"
                 class="upload-input"
               />
-              <div v-if="!uploading && !form.image" class="upload-placeholder">
+              <div v-if="!uploading && imageUrls.length === 0" class="upload-placeholder">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                   <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.2"/>
                   <circle cx="8.5" cy="9.5" r="1.5" stroke="currentColor" stroke-width="1.2"/>
                   <path d="M3 17l4-4 3 3 5-5 6 6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
-                <span class="upload-hint">点击上传图片</span>
+                <span class="upload-hint">点击选择多张图片</span>
               </div>
               <div v-else-if="uploading" class="upload-placeholder">
                 <svg class="spin" width="24" height="24" viewBox="0 0 24 24" fill="none">
                   <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5" stroke-dasharray="42" stroke-dashoffset="14" stroke-linecap="round"/>
                 </svg>
-                <span class="upload-hint">上传中...</span>
+                <span class="upload-hint">上传中...（{{ uploadedCount }}/{{ totalCount }}）</span>
               </div>
-              <div v-else class="upload-preview">
-                <img :src="form.image" alt="活动图片预览" class="upload-preview-img" @error="form.image = ''" />
-                <button class="upload-remove" @click.stop="removeImage">×</button>
+              <div v-else class="upload-gallery">
+                <div v-for="(url, idx) in imageUrls" :key="idx" class="upload-thumb">
+                  <img :src="url" alt="活动图片" class="upload-thumb-img" @error="removeByIndex(idx)" />
+                  <button class="upload-remove" @click.stop="removeByIndex(idx)">×</button>
+                </div>
+                <div class="upload-add-more" @click.stop="triggerUpload">
+                  <span class="add-more-icon">+</span>
+                </div>
               </div>
             </div>
-            <p class="upload-info">支持 JPG、PNG、GIF、WebP，最大 10MB</p>
+            <p class="upload-info">支持 JPG、PNG、GIF、WebP，每张最大 20MB，最多 10 张</p>
           </div>
 
           <!-- 提交 -->
@@ -122,8 +128,11 @@ import ThemeSwitcherIcon from '../components/ThemeSwitcherIcon.vue'
 const router = useRouter()
 const submitting = ref(false)
 const uploading = ref(false)
+const uploadedCount = ref(0)
+const totalCount = ref(0)
 const isDark = ref(true)
 const fileInput = ref(null)
+const imageUrls = ref([])
 
 const form = reactive({
   name: '',
@@ -152,40 +161,53 @@ function triggerUpload() {
 
 async function handleFileSelect(e) {
   const input = e.target
-  const file = input.files?.[0]
-  if (!file) return
+  const files = Array.from(input.files || [])
+  if (!files.length) return
 
-  // Client-side validation
-  const maxSize = 10 << 20
-  if (file.size > maxSize) {
-    alert('图片太大，请选择小于 10MB 的图片')
-    input.value = ''
-    return
-  }
   const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
-  if (!allowed.includes(file.type)) {
-    alert('不支持的图片格式，请选择 JPG、PNG、GIF 或 WebP')
+  const maxSize = 20 << 20
+
+  // Validate all files first
+  for (const file of files) {
+    if (file.size > maxSize) {
+      alert(`"${file.name}" 太大，请选择小于 20MB 的图片`)
+      input.value = ''
+      return
+    }
+    if (!allowed.includes(file.type)) {
+      alert(`"${file.name}" 格式不支持，请选择 JPG、PNG、GIF 或 WebP`)
+      input.value = ''
+      return
+    }
+  }
+
+  if (imageUrls.value.length + files.length > 10) {
+    alert('最多上传 10 张图片')
     input.value = ''
     return
   }
 
   uploading.value = true
+  uploadedCount.value = 0
+  totalCount.value = files.length
+
   try {
     const fd = new FormData()
-    fd.append('image', file)
+    files.forEach(f => fd.append('images', f))
     const res = await api.post('/api/upload/image', fd)
-    form.image = res.data.url
+    const urls = res.data.urls || []
+    imageUrls.value.push(...urls)
+    uploadedCount.value = urls.length
   } catch (e) {
     alert('图片上传失败，请重试')
-    form.image = ''
   } finally {
     uploading.value = false
     input.value = ''
   }
 }
 
-function removeImage() {
-  form.image = ''
+function removeByIndex(idx) {
+  imageUrls.value.splice(idx, 1)
 }
 
 async function handleSubmit() {
@@ -196,7 +218,12 @@ async function handleSubmit() {
 
   submitting.value = true
   try {
-    await api.post('/api/activities', form)
+    const payload = { ...form }
+    // Store multiple image URLs as JSON array string
+    if (imageUrls.value.length > 0) {
+      payload.image = JSON.stringify(imageUrls.value)
+    }
+    await api.post('/api/activities', payload)
     router.push('/events')
   } catch (e) {
     alert('提交失败，请重试')
@@ -375,25 +402,53 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator {
 .upload-hint {
   font-size: 13px; color: rgba(255,255,255,0.15);
 }
-.upload-preview {
-  position: relative;
-  width: 100%; padding: 8px;
+.upload-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 8px;
+  padding: 12px;
 }
-.upload-preview-img {
-  width: 100%; max-height: 200px;
-  object-fit: cover; border-radius: 6px;
+.upload-thumb {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.03);
+  background: rgba(255,255,255,0.005);
+}
+.upload-thumb-img {
+  width: 100%; height: 100%;
+  object-fit: cover;
   display: block;
 }
 .upload-remove {
-  position: absolute; top: 16px; right: 16px;
-  width: 28px; height: 28px; border-radius: 50%;
+  position: absolute; top: 4px; right: 4px;
+  width: 22px; height: 22px; border-radius: 50%;
   background: rgba(0,0,0,0.5);
-  border: none; color: #fff; font-size: 18px;
+  border: none; color: #fff; font-size: 14px;
   cursor: pointer; display: flex;
   align-items: center; justify-content: center;
   transition: background 0.2s; line-height: 1;
+  opacity: 0;
 }
+.upload-thumb:hover .upload-remove { opacity: 1; }
 .upload-remove:hover { background: rgba(0,0,0,0.7); }
+.upload-add-more {
+  aspect-ratio: 1;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px;
+  border: 1px dashed rgba(255,255,255,0.04);
+  background: rgba(255,255,255,0.005);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.upload-add-more:hover {
+  border-color: rgba(15,155,142,0.1);
+  background: rgba(15,155,142,0.01);
+}
+.add-more-icon {
+  font-size: 24px; color: rgba(255,255,255,0.04); line-height: 1;
+}
 .upload-info {
   font-size: 11px; color: rgba(255,255,255,0.08);
   margin: 4px 0 0; padding-left: 2px;
