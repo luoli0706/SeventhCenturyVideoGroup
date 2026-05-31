@@ -97,7 +97,7 @@
                 </div>
               </div>
             </div>
-            <p class="upload-info">支持 JPG、PNG、GIF、WebP，每张最大 20MB，最多 10 张</p>
+            <p class="upload-info">支持 JPG、PNG、GIF、WebP，每张最大 30MB，最多 10 张</p>
           </div>
 
           <!-- 提交 -->
@@ -120,7 +120,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted } from 'vue'
+import { reactive, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../utils/api'
 import ThemeSwitcherIcon from '../components/ThemeSwitcherIcon.vue'
@@ -133,6 +133,8 @@ const totalCount = ref(0)
 const isDark = ref(true)
 const fileInput = ref(null)
 const imageUrls = ref([])
+// Track uploaded URLs so we can delete them if user doesn't submit
+const uploadedUrls = ref([])
 
 const form = reactive({
   name: '',
@@ -165,12 +167,12 @@ async function handleFileSelect(e) {
   if (!files.length) return
 
   const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
-  const maxSize = 20 << 20
+  const maxSize = 30 << 20
 
   // Validate all files first
   for (const file of files) {
     if (file.size > maxSize) {
-      alert(`"${file.name}" 太大，请选择小于 20MB 的图片`)
+      alert(`"${file.name}" 太大，请选择小于 30MB 的图片`)
       input.value = ''
       return
     }
@@ -197,6 +199,7 @@ async function handleFileSelect(e) {
     const res = await api.post('/api/upload/image', fd)
     const urls = res.data.urls || []
     imageUrls.value.push(...urls)
+    uploadedUrls.value.push(...urls)
     uploadedCount.value = urls.length
   } catch (e) {
     alert('图片上传失败，请重试')
@@ -206,9 +209,21 @@ async function handleFileSelect(e) {
   }
 }
 
-function removeByIndex(idx) {
+async function removeByIndex(idx) {
+  const url = imageUrls.value[idx]
   imageUrls.value.splice(idx, 1)
+  // Delete from server silently
+  try { await api.post('/api/upload/delete', { url }) } catch {}
 }
+
+// Cleanup: delete uploaded images if user navigates away without submitting
+onUnmounted(() => {
+  if (uploadedUrls.value.length > 0) {
+    uploadedUrls.value.forEach(url => {
+      api.post('/api/upload/delete', { url }).catch(() => {})
+    })
+  }
+})
 
 async function handleSubmit() {
   if (!form.name || !form.time) {
@@ -223,6 +238,8 @@ async function handleSubmit() {
     if (imageUrls.value.length > 0) {
       payload.image = JSON.stringify(imageUrls.value)
     }
+    // Clear tracked URLs so unmount cleanup doesn't delete submitted images
+    uploadedUrls.value = []
     await api.post('/api/activities', payload)
     router.push('/events')
   } catch (e) {

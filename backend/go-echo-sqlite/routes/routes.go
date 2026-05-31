@@ -24,6 +24,7 @@ func InitRoutes(e *echo.Echo) {
 	api.DELETE("/club_members/:id", controllers.RequireMember(controllers.DeleteClubMember))
 	api.POST("/activities", controllers.RequireMember(controllers.CreateActivity))
 	api.POST("/upload/image", controllers.RequireMember(controllers.UploadImage))
+	api.POST("/upload/delete", controllers.RequireMember(controllers.DeleteUploadedImage))
 
 	// 个人主页相关路由（需要成员权限）
 	api.GET("/member-profile/:cn", controllers.GetMemberProfile)
