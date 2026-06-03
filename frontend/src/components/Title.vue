@@ -1,7 +1,7 @@
 <template>
   <div class="title-block">
     <h1 class="site-title">柒世纪视频组</h1>
-    <p class="site-subtitle">Seventh Century Video Group — MAD·MMD 创作研究</p>
+    <p class="site-subtitle">Seventh Century Video Group <span class="sub-sep">—</span> MAD·MMD 创作研究</p>
   </div>
 </template>
 
@@ -10,37 +10,39 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  margin: 4px 0;
 }
 
 .site-title {
-  font-size: 2.4rem;
-  font-weight: 700;
-  letter-spacing: 4px;
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: 8px;
   margin: 0;
-  background: linear-gradient(135deg, #165dff 0%, #0f9b8e 45%, #e6a817 100%);
+  font-family: 'Maple Mono', 'Plus Jakarta Sans', sans-serif;
+  background: linear-gradient(135deg, rgba(15,155,142,0.7) 0%, rgba(230,168,23,0.7) 40%, rgba(15,155,142,0.7) 100%);
   background-size: 200% auto;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  animation: titleShimmer 5s ease-in-out infinite;
-  line-height: 1.2;
-  text-shadow: none;
-  filter: drop-shadow(0 0 0 transparent);
+  animation: shimmer 8s ease-in-out infinite;
+  line-height: 1.3;
   transition: filter 0.5s ease;
 }
 
 .site-subtitle {
-  margin: 0;
-  font-size: 0.78rem;
-  letter-spacing: 1px;
-  color: rgba(100, 100, 130, 0.6);
+  margin: 12px 0 0;
+  font-size: 0.7rem;
+  letter-spacing: 3px;
+  color: rgba(100, 100, 130, 0.35);
   font-weight: 400;
   transition: color 0.3s ease;
 }
 
-@keyframes titleShimmer {
+.sub-sep {
+  margin: 0 6px;
+  opacity: 0.4;
+}
+
+@keyframes shimmer {
   0%, 100% { background-position: 0% center; }
   50%      { background-position: 100% center; }
 }

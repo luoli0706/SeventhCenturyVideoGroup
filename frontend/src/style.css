@@ -2,6 +2,12 @@
    柒世纪视频组 - 全局样式 & 设计变量
    ======================================== */
 
+/* Maple Mono — 等宽连字字体 */
+@import '@fontsource/maple-mono/400.css';
+@import '@fontsource/maple-mono/600.css';
+@import '@fontsource/maple-mono/700.css';
+@import '@fontsource/maple-mono/800.css';
+
 :root {
   /* ---- 设计色彩 ---- */
   --cyan: #0f9b8e;
@@ -33,7 +39,8 @@
   --radius-lg: 16px;
 
   /* ---- 字体 ---- */
-  font-family: 'Plus Jakarta Sans', 'Noto Sans SC', system-ui, sans-serif;
+  font-family: 'Plus Jakarta Sans', 'Noto Sans SC', 'Maple Mono', system-ui, sans-serif;
+  font-feature-settings: "cv01" off, "cv02" off, "cv03" off, "cv04" off, "cv05" off, "cv06" off, "cv07" off, "cv08" off, "cv09" off, "cv10" off, "cv11" off, "cv12" off, "cv13" off, "cv14" off, "cv15" off, "cv16" off, "cv17" off, "cv18" off, "cv19" off, "cv20" off, "cv21" off, "cv22" off, "cv23" off, "cv24" off, "cv25" off, "ss01" off, "ss02" off, "ss03" off, "ss04" off, "ss05" off, "ss06" off, "ss07" off, "ss08" off, "ss09" off, "ss10" off;
   line-height: 1.5;
   font-weight: 400;
   font-synthesis: none;

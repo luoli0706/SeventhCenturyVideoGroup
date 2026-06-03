@@ -1,90 +1,54 @@
 <template>
-  <div>
-    <!-- 主功能导航 -->
-    <div :class="['nav-card', isDark ? 'nav-card-dark' : 'nav-card-light']">
-      <div class="nav-card-label">导航</div>
-      <a-space direction="horizontal" size="large">
-        <a-button
-          :type="isDark ? 'secondary' : 'primary'"
-          :class="[isDark ? 'dark-btn' : 'light-btn', 'nav-btn']"
-          @click="handleMembersClick"
-        >社团成员名单</a-button>
-        <router-link to="/events">
-          <a-button
-            :type="isDark ? 'secondary' : 'primary'"
-            :class="[isDark ? 'dark-btn' : 'light-btn', 'nav-btn']"
-          >社团活动事件</a-button>
-        </router-link>
-        <router-link to="/recruit">
-          <a-button
-            :type="isDark ? 'secondary' : 'primary'"
-            :class="[isDark ? 'dark-btn' : 'light-btn', 'nav-btn']"
-          >社团招新</a-button>
-        </router-link>
-        <router-link to="/games">
-          <a-button
-            :type="isDark ? 'secondary' : 'primary'"
-            :class="[isDark ? 'dark-btn' : 'light-btn', 'nav-btn']"
-          >奇怪的小游戏</a-button>
-        </router-link>
-      </a-space>
-    </div>
-
-    <!-- AI助手入口 -->
-    <div style="margin-top: 1.2em;">
-      <router-link to="/ai-assistant">
-        <a-button
-          :type="isDark ? 'secondary' : 'primary'"
-          :class="[isDark ? 'dark-btn' : 'light-btn', 'ai-assistant-btn']"
-          size="large"
-        >
-          <span class="ai-btn-content">
-            <span class="ai-icon">🤖</span>
-            <span class="ai-text">视小姬 AI助手</span>
-            <span class="ai-arrow">→</span>
-          </span>
-        </a-button>
+  <div class="nav-root">
+    <!-- 导航列表 -->
+    <div class="nav-list">
+      <button class="nav-item" @click="handleMembersClick">
+        <span class="nav-text">社团成员名单</span>
+        <span class="nav-arrow">→</span>
+      </button>
+      <router-link to="/events" class="nav-item">
+        <span class="nav-text">社团活动事件</span>
+        <span class="nav-arrow">→</span>
+      </router-link>
+      <router-link to="/recruit" class="nav-item">
+        <span class="nav-text">社团招新</span>
+        <span class="nav-arrow">→</span>
+      </router-link>
+      <router-link to="/games" class="nav-item">
+        <span class="nav-text">奇怪的小游戏</span>
+        <span class="nav-arrow">→</span>
       </router-link>
     </div>
 
-    <!-- 仅社团成员可见的功能 -->
-    <div v-if="isMember" class="member-section">
-      <div class="member-section-label">成员功能</div>
-      <a-space direction="horizontal" size="middle">
-        <router-link to="/kb-manage">
-          <a-button
-            :type="isDark ? 'secondary' : 'primary'"
-            :class="[isDark ? 'dark-btn' : 'light-btn', 'member-btn']"
-            size="small"
-          >知识库管理</a-button>
-        </router-link>
-      </a-space>
+    <!-- AI 助手 -->
+    <router-link to="/ai-assistant" class="ai-bar">
+      <span class="ai-icon">🤖</span>
+      <span class="ai-label">视小姬 AI 助手</span>
+      <span class="ai-arrow">→</span>
+    </router-link>
+
+    <!-- 成员功能 -->
+    <div v-if="isMember" class="member-zone">
+      <span class="zone-label">成员功能</span>
+      <router-link to="/kb-manage" class="member-link">知识库管理</router-link>
     </div>
 
     <!-- 用户状态 -->
-    <div class="user-status" style="margin-top: 24px;">
-      <a-space direction="vertical" size="small">
-        <a-space>
-          <span :class="['status-badge', userType === 'member' ? 'status-member' : 'status-guest']">
-            <span class="status-dot"></span>
-            {{ userType === 'member' ? '社团成员' : '访客模式' }}
-          </span>
-          <span v-if="userInfo" class="user-name">{{ userInfo.cn }}</span>
-        </a-space>
+    <div class="status-area">
+      <div class="status-badge-row">
+        <span :class="['badge', userType === 'member' ? 'badge-member' : 'badge-guest']">
+          <span class="badge-dot"></span>
+          {{ userType === 'member' ? '社团成员' : '访客' }}
+        </span>
+        <span v-if="userInfo" class="status-name">{{ userInfo.cn }}</span>
+      </div>
 
-        <div v-if="userType === 'guest'" class="guest-tip">
-          <p class="guest-tip-text">
-            当前为访客模式，部分功能受限
-          </p>
-          <a-button type="primary" size="small" @click="goToLogin" class="guest-login-btn">
-            切换为成员登录
-          </a-button>
-        </div>
+      <div v-if="userType === 'guest'" class="guest-hint">
+        <span>访客模式 · 部分功能受限</span>
+        <button class="hint-btn" @click="goToLogin">成员登录</button>
+      </div>
 
-        <a-button v-if="userType === 'member'" type="text" @click="logout" class="logout-btn">
-          退出登录
-        </a-button>
-      </a-space>
+      <button v-if="userType === 'member'" class="logout-link" @click="logout">退出登录</button>
     </div>
   </div>
 </template>
@@ -114,7 +78,7 @@ onMounted(() => {
   }
 })
 
-const handleMembersClick = () => {
+function handleMembersClick() {
   membersClickCount.value++
   localStorage.setItem('membersClickCount', membersClickCount.value.toString())
   if (membersClickCount.value >= maxClicksBeforeAdmin) {
@@ -126,291 +90,359 @@ const handleMembersClick = () => {
   }
 }
 
-const updateUserStatus = () => {
+function updateUserStatus() {
   userType.value = auth.getUserType() || 'guest'
   isMember.value = auth.isMember()
   userInfo.value = auth.getUserInfo()
 }
 
-const logout = () => {
+function logout() {
   auth.logout()
   router.push('/')
 }
 
-const goToLogin = () => {
+function goToLogin() {
   auth.logout()
   router.push('/')
 }
 </script>
 
 <style scoped>
-/* ===========================
-   Button base
-   =========================== */
-.dark-btn {
-  background: #232324 !important;
-  color: #fff !important;
+.nav-root {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* ── Nav List ── */
+.nav-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+  text-decoration: none;
+  cursor: pointer;
   border: none;
-}
-.light-btn {
-  background: #fff !important;
-  color: #165dff !important;
-  border: 1px solid #165dff !important;
-}
-
-/* ===========================
-   Nav Card
-   =========================== */
-.nav-card {
-  padding: 16px 24px 20px;
-  border-radius: 14px;
-  position: relative;
-  margin-top: 2em;
-  transition: all 0.3s ease;
+  background: none;
+  font-family: inherit;
+  border-bottom: 1px solid rgba(255,255,255,0.02);
+  transition: all 0.35s ease;
 }
 
-.nav-card-dark {
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.05);
-}
-.nav-card-light {
-  background: rgba(255,255,255,0.5);
-  border: 1px solid rgba(0,0,0,0.04);
-  box-shadow: 0 2px 12px rgba(0,0,0,0.03);
+.nav-item:last-child {
+  border-bottom: none;
 }
 
-.nav-card-label {
-  position: absolute;
-  top: -8px;
-  left: 20px;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  padding: 0 8px;
-  background: inherit;
-  color: var(--text-muted, rgba(150,150,170,0.6));
-}
-
-.nav-card-dark .nav-card-label {
+.nav-text {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 1px;
   color: rgba(255,255,255,0.25);
-}
-.nav-card-light .nav-card-label {
-  color: rgba(0,0,0,0.2);
+  transition: color 0.35s ease;
 }
 
-/* ===========================
-   Nav buttons
-   =========================== */
-.nav-btn {
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  position: relative;
-  overflow: hidden;
+.nav-arrow {
+  font-size: 13px;
+  color: rgba(255,255,255,0.04);
+  transition: all 0.35s ease;
 }
 
-.nav-btn::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: currentColor;
-  opacity: 0;
-  transition: opacity 0.25s ease;
+.nav-item:hover .nav-text {
+  color: rgba(15,155,142,0.6);
 }
 
-.nav-btn:hover {
-  transform: translateY(-2px);
+.nav-item:hover .nav-arrow {
+  color: rgba(15,155,142,0.25);
+  transform: translateX(4px);
 }
 
-.dark-btn.nav-btn:hover {
-  background: #2a2a3a !important;
-  box-shadow: 0 4px 20px rgba(15, 155, 142, 0.15);
-}
-.light-btn.nav-btn:hover {
-  background: #f0f5ff !important;
-  box-shadow: 0 4px 20px rgba(22, 93, 255, 0.12);
-}
-
-/* ===========================
-   AI Assistant button
-   =========================== */
-.ai-assistant-btn {
-  font-size: 1em !important;
-  padding: 0 !important;
-  height: auto !important;
-  border-radius: 12px !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  overflow: hidden;
-}
-
-.ai-btn-content {
+/* ── AI Bar ── */
+.ai-bar {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 28px;
+  padding: 18px 24px;
+  border-radius: 12px;
+  text-decoration: none;
+  background: linear-gradient(135deg, rgba(15,155,142,0.03), rgba(230,168,23,0.01));
+  border: 1px solid rgba(15,155,142,0.04);
+  transition: all 0.4s ease;
+}
+
+.ai-bar:hover {
+  background: linear-gradient(135deg, rgba(15,155,142,0.05), rgba(230,168,23,0.02));
+  border-color: rgba(15,155,142,0.08);
+  box-shadow: 0 4px 20px rgba(15,155,142,0.03);
 }
 
 .ai-icon {
-  font-size: 1.3em;
+  font-size: 1.2em;
   line-height: 1;
 }
 
-.ai-text {
+.ai-label {
+  flex: 1;
+  font-size: 14px;
   font-weight: 600;
-  font-size: 1.05em;
+  letter-spacing: 1px;
+  color: rgba(255,255,255,0.3);
+  font-family: 'Maple Mono', inherit;
+  transition: color 0.35s ease;
+}
+
+.ai-bar:hover .ai-label {
+  color: rgba(15,155,142,0.6);
 }
 
 .ai-arrow {
-  font-size: 1.1em;
-  opacity: 0;
-  transform: translateX(-8px);
+  font-size: 14px;
+  color: rgba(15,155,142,0.08);
+  transition: all 0.35s ease;
+}
+
+.ai-bar:hover .ai-arrow {
+  color: rgba(15,155,142,0.25);
+  transform: translateX(4px);
+}
+
+/* ── Member Zone ── */
+.member-zone {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0;
+  animation: fadeIn 0.4s ease;
+}
+
+.zone-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.08);
+}
+
+.member-link {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-decoration: none;
+  color: rgba(15,155,142,0.3);
+  transition: color 0.3s ease;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(15,155,142,0.04);
+}
+
+.member-link:hover {
+  color: rgba(15,155,142,0.6);
+  border-color: rgba(15,155,142,0.08);
+}
+
+/* ── Status Area ── */
+.status-area {
+  text-align: center;
+}
+
+.status-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  padding: 3px 10px;
+  border-radius: 4px;
+}
+
+.badge-member {
+  color: rgba(15,155,142,0.25);
+  background: rgba(15,155,142,0.02);
+}
+
+.badge-guest {
+  color: rgba(230,168,23,0.2);
+  background: rgba(230,168,23,0.02);
+}
+
+.badge-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+}
+
+.badge-member .badge-dot {
+  background: rgba(15,155,142,0.2);
+}
+
+.badge-guest .badge-dot {
+  background: rgba(230,168,23,0.2);
+}
+
+.status-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.08);
+}
+
+.guest-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 10px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.08);
+}
+
+.hint-btn {
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-family: inherit;
+  color: rgba(230,168,23,0.2);
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid rgba(230,168,23,0.04);
   transition: all 0.3s ease;
 }
 
-.ai-assistant-btn:hover .ai-arrow {
-  opacity: 1;
-  transform: translateX(0);
+.hint-btn:hover {
+  color: rgba(230,168,23,0.35);
+  border-color: rgba(230,168,23,0.08);
 }
 
-.dark-btn.ai-assistant-btn {
-  background: linear-gradient(135deg, #1a1a2e, #16213e) !important;
-  border: 1px solid rgba(15, 155, 142, 0.2) !important;
-}
-.light-btn.ai-assistant-btn {
-  background: linear-gradient(135deg, #ffffff, #f0f5ff) !important;
-}
-
-.ai-assistant-btn:hover {
-  transform: translateY(-3px) scale(1.02);
-}
-
-.dark-btn.ai-assistant-btn:hover {
-  box-shadow: 0 8px 28px rgba(15, 155, 142, 0.2) !important;
-  border-color: rgba(15, 155, 142, 0.4) !important;
-}
-.light-btn.ai-assistant-btn:hover {
-  box-shadow: 0 8px 28px rgba(22, 93, 255, 0.13) !important;
-}
-
-/* ===========================
-   Member section
-   =========================== */
-.member-section {
-  margin-top: 1em;
-  padding: 12px 16px;
-  border-radius: 10px;
-  animation: memberFadeIn 0.4s ease;
-  position: relative;
-}
-
-.member-section-label {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  margin-bottom: 10px;
-  color: rgba(255,255,255,0.25);
-  text-align: center;
-}
-
-@keyframes memberFadeIn {
-  from { opacity: 0; transform: translateY(-8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-.member-btn {
-  transition: all 0.25s ease !important;
-  border-radius: 8px !important;
-}
-
-.member-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(15, 155, 142, 0.15);
-}
-
-/* ===========================
-   User status
-   =========================== */
-.user-status {
-  text-align: center;
-  font-size: 0.9em;
-}
-
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 12px;
-  border-radius: 20px;
-  font-size: 0.85em;
-  font-weight: 500;
-}
-
-.status-member {
-  background: rgba(15, 155, 142, 0.1);
-  color: #0f9b8e;
-  border: 1px solid rgba(15, 155, 142, 0.2);
-}
-
-.status-guest {
-  background: rgba(230, 168, 23, 0.08);
-  color: #e6a817;
-  border: 1px solid rgba(230, 168, 23, 0.15);
-}
-
-.status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.status-member .status-dot {
-  background: #0f9b8e;
-  box-shadow: 0 0 6px rgba(15, 155, 142, 0.5);
-}
-
-.status-guest .status-dot {
-  background: #e6a817;
-  box-shadow: 0 0 6px rgba(230, 168, 23, 0.4);
-}
-
-.user-name {
-  color: inherit;
-  font-weight: 500;
-  font-size: 0.95em;
-}
-
-/* --- Guest tip --- */
-.guest-tip {
-  background: linear-gradient(135deg, rgba(230, 168, 23, 0.08), rgba(230, 168, 23, 0.02)) !important;
-  border: 1px solid rgba(230, 168, 23, 0.15) !important;
-  border-radius: 10px;
-  padding: 12px 20px;
+.logout-link {
   margin-top: 8px;
-  backdrop-filter: blur(8px);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-family: inherit;
+  color: rgba(255,107,107,0.15);
+  padding: 4px 10px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
 }
 
-.guest-tip-text {
-  font-size: 0.85em;
-  margin: 0 0 10px 0;
-  color: #888;
+.logout-link:hover {
+  color: rgba(255,107,107,0.35);
 }
 
-.guest-login-btn {
-  border-radius: 8px !important;
-  font-weight: 500 !important;
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-/* --- Logout --- */
-.logout-btn {
-  color: rgba(255, 107, 107, 0.6) !important;
-  transition: all 0.2s ease !important;
-  font-size: 0.85em !important;
+/* ===== Light Mode ===== */
+.theme-light .nav-item {
+  border-bottom-color: rgba(0,0,0,0.02);
 }
 
-.logout-btn:hover {
-  color: #ff6b6b !important;
-  transform: translateY(-1px);
+.theme-light .nav-text {
+  color: rgba(0,0,0,0.15);
+}
+
+.theme-light .nav-arrow {
+  color: rgba(0,0,0,0.02);
+}
+
+.theme-light .nav-item:hover .nav-text {
+  color: rgba(15,155,142,0.5);
+}
+
+.theme-light .nav-item:hover .nav-arrow {
+  color: rgba(15,155,142,0.15);
+}
+
+.theme-light .ai-bar {
+  background: rgba(255,255,255,0.4);
+  border-color: rgba(0,0,0,0.02);
+}
+
+.theme-light .ai-bar:hover {
+  background: rgba(255,255,255,0.6);
+  border-color: rgba(15,155,142,0.06);
+}
+
+.theme-light .ai-label {
+  color: rgba(0,0,0,0.2);
+}
+
+.theme-light .ai-bar:hover .ai-label {
+  color: rgba(15,155,142,0.5);
+}
+
+.theme-light .ai-arrow {
+  color: rgba(15,155,142,0.04);
+}
+
+.theme-light .ai-bar:hover .ai-arrow {
+  color: rgba(15,155,142,0.15);
+}
+
+.theme-light .zone-label {
+  color: rgba(0,0,0,0.05);
+}
+
+.theme-light .member-link {
+  color: rgba(15,155,142,0.25);
+  border-color: rgba(15,155,142,0.03);
+}
+
+.theme-light .member-link:hover {
+  color: rgba(15,155,142,0.5);
+  border-color: rgba(15,155,142,0.06);
+}
+
+.theme-light .badge-member {
+  color: rgba(15,155,142,0.2);
+  background: rgba(15,155,142,0.01);
+}
+
+.theme-light .badge-guest {
+  color: rgba(230,168,23,0.15);
+  background: rgba(230,168,23,0.01);
+}
+
+.theme-light .status-name {
+  color: rgba(0,0,0,0.06);
+}
+
+.theme-light .guest-hint {
+  color: rgba(0,0,0,0.06);
+}
+
+.theme-light .hint-btn {
+  color: rgba(230,168,23,0.15);
+  border-color: rgba(230,168,23,0.03);
+}
+
+.theme-light .hint-btn:hover {
+  color: rgba(230,168,23,0.3);
+  border-color: rgba(230,168,23,0.06);
+}
+
+.theme-light .logout-link {
+  color: rgba(255,107,107,0.12);
+}
+
+.theme-light .logout-link:hover {
+  color: rgba(255,107,107,0.3);
 }
 </style>
