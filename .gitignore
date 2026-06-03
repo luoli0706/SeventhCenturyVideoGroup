@@ -135,3 +135,11 @@ docker-compose.override.yml
 # Backup files
 *.bak
 *.backup
+
+# Nuxt SSR (hybrid/)
+hybrid/node_modules/
+hybrid/.output/
+hybrid/.nuxt/
+hybrid/dist/
+hybrid/.env
+hybrid/data/daily-verify-count.json

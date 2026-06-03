@@ -1,0 +1,20 @@
+[Unit]
+Description=Nuxt SSR Home Page — 柒世纪视频组
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/www/wwwroot/scvg/hybrid
+ExecStart=/usr/bin/node .output/server/index.mjs
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=NUXT_ALIYUN_CAPTCHA_ACCESS_KEY_ID=your_access_key_id
+Environment=NUXT_ALIYUN_CAPTCHA_ACCESS_KEY_SECRET=your_access_key_secret
+Environment=NUXT_PUBLIC_ALIYUN_CAPTCHA_SCENE_ID=your_scene_id
+Environment=NUXT_PUBLIC_ALIYUN_CAPTCHA_PREFIX=cn
+
+[Install]
+WantedBy=multi-user.target

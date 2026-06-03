@@ -3,3 +3,17 @@ node_modules/
 .nuxt/
 dist/
 *.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Runtime data
+data/daily-verify-count.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

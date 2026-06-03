@@ -33,9 +33,15 @@ scvg/
 │   ├── package.json
 │   └── vite.config.js
 │
-├── Hybrid_scvg/                        # Nuxt 3 SSR 首页
+├── hybrid/                             # Nuxt 3 SSR 首页（subtree）
 │   ├── pages/
-│   │   └── index.vue                   # 社团首页（SSR 渲染）
+│   │   ├── index.vue                   # 社团首页（SSR 渲染）
+│   │   └── verify.vue                  # 人机验证页面（阿里云验证码）
+│   ├── components/
+│   │   └── AliyunCaptcha.vue           # 阿里云验证码 2.0 弹窗组件
+│   ├── server/
+│   │   └── api/
+│   │       └── turnstile-verify.post.ts # 验证码服务端验签 API
 │   ├── assets/
 │   │   └── main.css                    # 全局样式
 │   ├── nuxt.config.ts                  # Nuxt 配置
@@ -130,7 +136,7 @@ npm run dev
 ### SSR 首页启动
 
 ```bash
-cd Hybrid_scvg
+cd hybrid
 npm install
 npm run dev
 ```
@@ -168,9 +174,9 @@ npm run build
 # 输出到 frontend/dist/
 
 # SSR 首页
-cd Hybrid_scvg
+cd hybrid
 npm run build
-# 输出到 Hybrid_scvg/.output/
+# 输出到 hybrid/.output/
 ```
 
 ---
@@ -241,7 +247,7 @@ npm run build
 
 - Go 后端：`backend/go-echo-sqlite/config/database.go` — 数据库路径及端口
 - AI 后端：`backend/ai-backend/.env` — DEEPSEEK_API_KEY, KNOWLEDGE_BASE_PATH
-- Nuxt SSR：`Hybrid_scvg/.env` — 阿里云验证码配置（NUXT_ALIYUN_CAPTCHA_ACCESS_KEY_ID, NUXT_ALIYUN_CAPTCHA_ACCESS_KEY_SECRET, NUXT_PUBLIC_ALIYUN_CAPTCHA_SCENE_ID, NUXT_PUBLIC_ALIYUN_CAPTCHA_PREFIX）
+- Nuxt SSR：`hybrid/.env` — 阿里云验证码配置（NUXT_ALIYUN_CAPTCHA_ACCESS_KEY_ID, NUXT_ALIYUN_CAPTCHA_ACCESS_KEY_SECRET, NUXT_PUBLIC_ALIYUN_CAPTCHA_SCENE_ID, NUXT_PUBLIC_ALIYUN_CAPTCHA_PREFIX）
 - nginx：`/etc/nginx/conf.d/scvg.conf`
 - systemd 服务：
   - `scvg.service` — Go 后端
