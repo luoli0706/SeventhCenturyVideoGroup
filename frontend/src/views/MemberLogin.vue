@@ -114,7 +114,6 @@ import { reactive, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../utils/api'
 import ThemeSwitcherIcon from '../components/ThemeSwitcherIcon.vue'
-
 const router = useRouter()
 const loading = ref(false)
 const showPwd = ref(false)

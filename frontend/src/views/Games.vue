@@ -27,6 +27,14 @@
             </div>
             <span class="gc-play">进入 →</span>
           </div>
+          <div class="game-card" @click="playGame('溢彩画')">
+            <div class="gc-icon">🎨</div>
+            <div class="gc-body">
+              <h3 class="gc-title">溢彩画</h3>
+              <p class="gc-desc">OverFloatPaint 溢出色彩绘画</p>
+            </div>
+            <span class="gc-play">进入 →</span>
+          </div>
         </div>
       </template>
 
@@ -82,6 +90,7 @@ function exitGame() {
 
 const gameSrc = computed(() => {
   if (currentGame.value === '合成大西瓜') return '/小游戏/合成大西瓜/index.html'
+  if (currentGame.value === '溢彩画') return '/小游戏/溢彩画/index.html'
   return ''
 })
 </script>

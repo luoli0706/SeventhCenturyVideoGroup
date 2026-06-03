@@ -1,8 +1,8 @@
 <template>
   <button :class="['theme-toggle', { 'is-dark': isDark }]" @click="toggleTheme" :title="isDark ? '切换浅色主题' : '切换深色主题'">
     <span class="toggle-track">
-      <span class="toggle-icon sun">☀️</span>
-      <span class="toggle-icon moon">🌙</span>
+      <span class="toggle-icon sun">☀</span>
+      <span class="toggle-icon moon">☽</span>
       <span class="toggle-thumb"></span>
     </span>
   </button>
@@ -40,88 +40,90 @@ onMounted(() => {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 6px;
-  margin-bottom: 20px;
-  border-radius: 50%;
-  transition: transform 0.3s ease;
+  padding: 0;
+  line-height: 0;
+  transition: transform 0.4s ease;
 }
 
 .theme-toggle:hover {
-  transform: scale(1.1);
+  transform: scale(1.15);
 }
 
 .theme-toggle:active {
-  transform: scale(0.95);
+  transform: scale(0.9);
 }
 
 .toggle-track {
   position: relative;
   display: flex;
   align-items: center;
-  width: 54px;
-  height: 28px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #e8ecf4, #dce2ee);
-  border: 1px solid #d0d5e0;
-  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-  padding: 0 4px;
+  width: 46px;
+  height: 22px;
+  border-radius: 11px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.04);
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  padding: 0 3px;
   box-sizing: border-box;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.04);
 }
 
 .is-dark .toggle-track {
-  background: linear-gradient(135deg, #16162a, #1a1a30);
-  border-color: rgba(15, 155, 142, 0.25);
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.3), 0 0 12px rgba(15, 155, 142, 0.06);
+  background: rgba(255,255,255,0.02);
+  border-color: rgba(15,155,142,0.08);
 }
 
 .toggle-icon {
-  font-size: 12px;
+  font-size: 10px;
   line-height: 1;
   z-index: 1;
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  transition: all 0.3s ease;
+  transition: all 0.4s ease;
+  color: rgba(255,255,255,0.15);
 }
 
-.toggle-icon.sun {
-  left: 7px;
-  opacity: 1;
-  filter: grayscale(0);
-}
+.toggle-icon.sun { left: 6px; }
+.toggle-icon.moon { right: 6px; }
 
-.toggle-icon.moon {
-  right: 7px;
-  opacity: 0.3;
-  filter: grayscale(0.5);
-}
-
-.is-dark .toggle-icon.sun {
-  opacity: 0.3;
-  filter: grayscale(0.5);
-}
-
-.is-dark .toggle-icon.moon {
-  opacity: 1;
-  filter: grayscale(0);
-}
+.is-dark .toggle-icon.sun { color: rgba(255,255,255,0.08); }
+.is-dark .toggle-icon.moon { color: rgba(255,255,255,0.3); }
 
 .toggle-thumb {
   position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 20px;
-  height: 20px;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
-  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s ease, box-shadow 0.3s ease;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.04);
+  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), background 0.3s ease, border-color 0.3s ease;
 }
 
 .is-dark .toggle-thumb {
   transform: translateX(24px);
-  background: #0f9b8e;
-  box-shadow: 0 1px 6px rgba(15, 155, 142, 0.35);
+  background: rgba(15,155,142,0.15);
+  border-color: rgba(15,155,142,0.15);
+}
+
+/* Light mode */
+.theme-light .toggle-track {
+  background: rgba(0,0,0,0.02);
+  border-color: rgba(0,0,0,0.03);
+}
+
+.theme-light .toggle-icon { color: rgba(0,0,0,0.12); }
+.theme-light .is-dark .toggle-icon.sun { color: rgba(0,0,0,0.06); }
+.theme-light .is-dark .toggle-icon.moon { color: rgba(0,0,0,0.2); }
+
+.theme-light .toggle-thumb {
+  background: rgba(255,255,255,0.8);
+  border-color: rgba(0,0,0,0.04);
+}
+
+.theme-light .is-dark .toggle-thumb {
+  background: rgba(15,155,142,0.2);
+  border-color: rgba(15,155,142,0.1);
 }
 </style>

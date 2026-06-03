@@ -70,7 +70,16 @@
             </div>
             <div class="tl-body">
               <h3 class="tl-title">{{ event.Name }}</h3>
-              <p class="tl-content">{{ event.Content }}</p>
+              <div v-if="eventImages(event.Image).length" class="tl-image-row">
+                <img
+                  v-for="(url, idx) in eventImages(event.Image)"
+                  :key="idx"
+                  :src="url"
+                  alt="活动图片"
+                  class="tl-image"
+                  @error="e => e.target.style.display='none'"
+                />
+              </div>
               <div class="tl-footer">
                 <span class="tl-timeago">{{ timeAgo(event.Time) }}</span>
                 <router-link v-if="event.Detail" :to="`/events/${event.ID}`" class="tl-detail-link">
@@ -126,6 +135,16 @@ function formatMonthYear(dateStr) {
   const parts = dateStr.split('-')
   if (parts.length >= 2) return `${parts[0]}/${parts[1]}`
   return dateStr
+}
+
+function eventImages(imgField) {
+  if (!imgField) return []
+  // JSON array string
+  if (imgField.startsWith('[')) {
+    try { return JSON.parse(imgField) } catch { return [] }
+  }
+  // Single URL (backward compat)
+  return [imgField]
 }
 
 function timeAgo(dateStr) {
@@ -446,12 +465,20 @@ onMounted(async () => {
   color: #fff;
 }
 
-.tl-content {
-  font-size: 0.88rem;
-  line-height: 1.6;
-  color: rgba(255,255,255,0.4);
-  margin: 0 0 10px;
+.tl-image-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+  margin: 8px 0 10px;
 }
+.tl-image {
+  width: 100%; aspect-ratio: 16/9;
+  object-fit: cover; border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.03);
+  transition: transform 0.35s ease;
+  background: rgba(255,255,255,0.005);
+}
+.tl-card:hover .tl-image { transform: scale(1.02); }
 
 .tl-footer {
   display: flex;
@@ -525,7 +552,8 @@ onMounted(async () => {
   background: rgba(15,155,142,0.015);
 }
 .theme-light .tl-title { color: #1d2129; }
-.theme-light .tl-content { color: rgba(0,0,0,0.4); }
+.theme-light .tl-image { border-color: rgba(0,0,0,0.04); }
+.theme-light .tl-image-row .tl-image { border-color: rgba(0,0,0,0.04); }
 .theme-light .tl-timeago { color: rgba(0,0,0,0.12); }
 .theme-light .tl-date-num { color: rgba(15,155,142,0.5); }
 .theme-light .tl-date-month { color: rgba(0,0,0,0.12); }

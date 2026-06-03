@@ -1,46 +1,40 @@
 <template>
-  <div :class="['bg-wrapper', isDark ? 'bg-dark' : 'bg-light']">
-    <!-- 右上角圣诞树链接 -->
+  <div :class="['home-page', isDark ? 'theme-dark' : 'theme-light']">
+    <div class="bg-layer">
+      <div class="bg-gradient"></div>
+      <div class="bg-dots"></div>
+    </div>
+
     <div class="christmas-link">
-      <a href="http://7thcv.cn:1225/" target="_blank" rel="noopener noreferrer" title="访问特别页面">
-        🎄
-      </a>
+      <a href="http://7thcv.cn:1225/" target="_blank" rel="noopener noreferrer" title="访问特别页面">🎄</a>
     </div>
 
-    <!-- 装饰性角落元素 -->
-    <div class="corner-deco top-left"></div>
-    <div class="corner-deco bottom-right"></div>
-    <div class="noise-overlay"></div>
-
-    <div class="home-bg">
-      <div class="bg-ambient"></div>
-      <div class="bg-ambient-secondary"></div>
-      <div class="content-wrapper">
-        <div class="department-links">
-          <a-space direction="horizontal" size="large">
-            <router-link to="/animation">
-              <a-button type="outline" size="small">动画系</a-button>
-            </router-link>
-            <router-link to="/static">
-              <a-button type="outline" size="small">静止系</a-button>
-            </router-link>
-            <router-link to="/3d">
-              <a-button type="outline" size="small">三维</a-button>
-            </router-link>
-          </a-space>
+    <main class="page-content">
+      <div class="content-flow">
+        <div class="section-top">
+          <ThemeSwitcher />
         </div>
-        <a-divider style="margin: 16px 0; width: 280px;" />
-        <ThemeSwitcher />
+
         <Title />
-        <SearchBox />
-        <HomeMenu :is-dark="isDark" />
+
+        <div class="dept-strip">
+          <router-link v-for="d in departments" :key="d.to" :to="d.to" class="dept-chip">{{ d.label }}</router-link>
+        </div>
+
+        <div class="section-search">
+          <SearchBox />
+        </div>
+
+        <div class="section-nav">
+          <span class="nav-label">导航</span>
+          <HomeMenu :is-dark="isDark" />
+        </div>
       </div>
-    </div>
-    <div class="icp-footer">
-      <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">
-        闽ICP备2025101374号
-      </a>
-    </div>
+    </main>
+
+    <footer class="page-footer">
+      <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">闽ICP备2025101374号</a>
+    </footer>
   </div>
 </template>
 
@@ -51,9 +45,9 @@ import SearchBox from '../components/SearchBox.vue'
 import HomeMenu from '../components/HomeMenuNew.vue'
 import ThemeSwitcher from '../components/ThemeSwitcher.vue'
 
-const isDark = ref(false)
+const isDark = ref(true)
 
-const updateTheme = () => {
+function updateTheme() {
   isDark.value = document.body.getAttribute('arco-theme') === 'dark'
 }
 
@@ -62,250 +56,199 @@ onMounted(() => {
   const observer = new MutationObserver(updateTheme)
   observer.observe(document.body, { attributes: true, attributeFilter: ['arco-theme'] })
 })
+
+const departments = [
+  { label: '动画系', to: '/animation' },
+  { label: '静止系', to: '/static' },
+  { label: '三维', to: '/3d' }
+]
 </script>
 
-<style>
-/* ============================================
-   Global animations
-   ============================================ */
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(24px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-@keyframes ambientDrift {
-  0%   { transform: translate(-50%, -50%) scale(1); }
-  50%  { transform: translate(-50%, -50%) scale(1.15); }
-  100% { transform: translate(-50%, -50%) scale(1); }
-}
-
-@keyframes cornerPulse {
-  0%, 100% { opacity: 0.3; }
-  50%      { opacity: 0.6; }
-}
-</style>
-
 <style scoped>
-.bg-wrapper {
-  display: flex;
-  min-height: 100vh;
-  width: 100vw;
-  overflow: hidden;
-  transition: background 0.5s ease;
-  position: relative;
+/* ── Background Layer ── */
+.bg-layer {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+}
+.bg-gradient {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 600px 400px at 30% 20%, rgba(15,155,142,0.03) 0%, transparent 100%),
+    radial-gradient(ellipse 500px 500px at 70% 80%, rgba(230,168,23,0.02) 0%, transparent 100%);
+}
+.bg-dots {
+  position: absolute; inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.004) 0.5px, transparent 0.5px);
+  background-size: 56px 56px;
 }
 
-/* --- 圣诞链接 --- */
+.home-page {
+  min-height: 100vh;
+  background: #08081a;
+  color: #e0e0ec;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ── Christmas Link ── */
 .christmas-link {
   position: fixed;
-  top: 20px;
-  right: 24px;
+  top: 24px;
+  right: 28px;
   z-index: 100;
-  animation: fadeIn 0.6s ease;
+  opacity: 0.5;
+  transition: opacity 0.4s ease;
 }
-
+.christmas-link:hover { opacity: 1; }
 .christmas-link a {
   display: inline-block;
-  font-size: 30px;
+  font-size: 22px;
   text-decoration: none;
-  transition: transform 0.3s ease, filter 0.3s ease;
-  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.2));
+  transition: transform 0.3s ease;
 }
+.christmas-link a:hover { transform: scale(1.2) rotate(8deg); }
 
-.christmas-link a:hover {
-  transform: scale(1.25) rotate(8deg);
-  filter: drop-shadow(0 4px 16px rgba(0,0,0,0.35));
-}
-
-/* --- 装饰角落 --- */
-.corner-deco {
-  position: fixed;
-  width: 120px;
-  height: 120px;
-  pointer-events: none;
-  z-index: 0;
-  animation: cornerPulse 4s ease-in-out infinite;
-}
-
-.corner-deco.top-left {
-  top: 0;
-  left: 0;
-  border-top: 2px solid rgba(15, 155, 142, 0.15);
-  border-left: 2px solid rgba(15, 155, 142, 0.15);
-}
-
-.corner-deco.bottom-right {
-  bottom: 0;
-  right: 0;
-  border-bottom: 2px solid rgba(15, 155, 142, 0.15);
-  border-right: 2px solid rgba(15, 155, 142, 0.15);
-}
-
-.bg-light .corner-deco {
-  border-color: rgba(22, 93, 255, 0.1);
-}
-
-/* --- 噪点纹理 --- */
-.noise-overlay {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.35;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-repeat: repeat;
-  background-size: 256px 256px;
-  mix-blend-mode: overlay;
-}
-
-.bg-dark .noise-overlay {
-  opacity: 0.2;
-}
-
-/* --- 背景主题 --- */
-.bg-light {
-  background: linear-gradient(135deg, #f5f7fb 0%, #eef1f8 40%, #e6ebf4 100%);
-}
-.bg-dark {
-  background: linear-gradient(135deg, #07070f 0%, #0d0d1a 40%, #0a0a16 100%);
-}
-
-/* --- 氛围光 --- */
-.bg-ambient {
-  position: fixed;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.bg-dark .bg-ambient {
-  top: 15%;
-  left: 50%;
-  width: 800px;
-  height: 800px;
-  background: radial-gradient(circle, rgba(15, 155, 142, 0.06) 0%, transparent 65%);
-  animation: ambientDrift 10s ease-in-out infinite;
-}
-
-.bg-light .bg-ambient {
-  top: 10%;
-  left: 50%;
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, rgba(22, 93, 255, 0.035) 0%, transparent 65%);
-  animation: ambientDrift 12s ease-in-out infinite;
-}
-
-.bg-ambient-secondary {
-  position: fixed;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.bg-dark .bg-ambient-secondary {
-  bottom: 0;
-  right: 0;
-  width: 500px;
-  height: 500px;
-  background: radial-gradient(circle, rgba(230, 168, 23, 0.04) 0%, transparent 60%);
-  animation: ambientDrift 14s ease-in-out infinite reverse;
-}
-
-.bg-light .bg-ambient-secondary {
-  bottom: 0;
-  right: 0;
-  width: 400px;
-  height: 400px;
-  background: radial-gradient(circle, rgba(230, 168, 23, 0.025) 0%, transparent 60%);
-  animation: ambientDrift 16s ease-in-out infinite reverse;
-}
-
-/* --- 中央内容 --- */
-.home-bg {
-  flex: 1;
-  min-width: 0;
-  background: transparent;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  min-height: 100vh;
-  position: relative;
-  z-index: 2;
-  padding-top: 15vh;
-}
-
-.content-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
+/* ── Content ── */
+.page-content {
   position: relative;
   z-index: 1;
-  transform: scale(1.08);
-  transform-origin: top center;
+  width: 100%;
+  max-width: 440px;
+  padding: 20vh 24px 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.content-wrapper > * {
-  animation: fadeInUp 0.6s ease backwards;
-}
-.content-wrapper > *:nth-child(1) { animation-delay: 0.05s; }
-.content-wrapper > *:nth-child(2) { animation-delay: 0.15s; }
-.content-wrapper > *:nth-child(3) { animation-delay: 0.25s; }
-.content-wrapper > *:nth-child(4) { animation-delay: 0.35s; }
-.content-wrapper > *:nth-child(5) { animation-delay: 0.45s; }
-.content-wrapper > *:nth-child(6) { animation-delay: 0.55s; }
-
-/* --- 系别按钮 --- */
-.department-links {
-  margin-bottom: 8px;
-}
-.department-links .arco-btn {
-  font-size: 0.9em;
-  padding: 6px 18px;
-  transition: all 0.25s ease;
-  border-radius: 20px !important;
-}
-.department-links .arco-btn:hover {
-  transform: translateY(-2px);
+.content-flow {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-/* --- ICP 页脚 --- */
-.icp-footer {
-  position: fixed;
-  left: 0;
-  bottom: 0;
-  width: 100vw;
-  text-align: center;
-  padding: 10px 0;
-  background: rgba(255,255,255,0.6);
-  font-size: 0.85em;
-  z-index: 99;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  animation: fadeIn 1s ease 0.8s backwards;
-  letter-spacing: 0.5px;
+.content-flow > * {
+  animation: fadeUp 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) backwards;
+}
+.content-flow > *:nth-child(1) { animation-delay: 0s; }
+.content-flow > *:nth-child(2) { animation-delay: 0.1s; }
+.content-flow > *:nth-child(3) { animation-delay: 0.2s; }
+.content-flow > *:nth-child(4) { animation-delay: 0.3s; }
+.content-flow > *:nth-child(5) { animation-delay: 0.4s; }
+
+/* ── Sections ── */
+.section-top {
+  margin-bottom: 48px;
+  opacity: 0.3;
+  transition: opacity 0.4s ease;
+}
+.section-top:hover { opacity: 0.6; }
+
+.dept-strip {
+  display: flex;
+  gap: 12px;
+  margin-top: 36px;
+  margin-bottom: 36px;
 }
 
-.bg-dark .icp-footer {
-  background: rgba(10, 10, 22, 0.7);
-}
-
-.icp-footer a {
-  color: #165dff;
+.dept-chip {
+  padding: 4px 14px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
   text-decoration: none;
-  transition: opacity 0.2s;
+  transition: all 0.35s ease;
+  color: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.02);
 }
 
-.bg-dark .icp-footer a {
-  color: rgba(15, 155, 142, 0.6);
+.dept-chip:hover {
+  color: rgba(15,155,142,0.5);
+  border-color: rgba(15,155,142,0.06);
 }
 
-.icp-footer a:hover {
-  opacity: 0.7;
+.section-search {
+  width: 100%;
+  margin-bottom: 40px;
+}
+
+.section-nav {
+  width: 100%;
+}
+
+.nav-label {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.04);
+  margin-bottom: 24px;
+}
+
+/* ── Footer ── */
+.page-footer {
+  position: relative;
+  z-index: 1;
+  padding: 0 24px 20px;
+  font-size: 10px;
+  letter-spacing: 1px;
+  margin-top: auto;
+}
+.page-footer a {
+  color: rgba(255,255,255,0.04);
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+.page-footer a:hover { color: rgba(255,255,255,0.1); }
+
+/* ── Animations ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== Light Mode ===== */
+.theme-light.home-page {
+  background: #f2f0ed;
+  color: #1d2129;
+}
+
+.theme-light .bg-dots {
+  background-image: radial-gradient(rgba(0,0,0,0.008) 0.5px, transparent 0.5px);
+}
+
+.theme-light .dept-chip {
+  color: rgba(0,0,0,0.08);
+  border-color: rgba(0,0,0,0.02);
+}
+
+.theme-light .dept-chip:hover {
+  color: rgba(15,155,142,0.4);
+  border-color: rgba(15,155,142,0.06);
+}
+
+.theme-light .nav-label {
+  color: rgba(0,0,0,0.03);
+}
+
+.theme-light .page-footer a {
+  color: rgba(0,0,0,0.04);
+}
+
+.theme-light .page-footer a:hover {
+  color: rgba(0,0,0,0.12);
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 480px) {
+  .page-content {
+    padding: 14vh 20px 60px;
+  }
+  .section-top { margin-bottom: 36px; }
+  .dept-strip { gap: 8px; margin-top: 28px; margin-bottom: 28px; }
+  .section-search { margin-bottom: 32px; }
 }
 </style>
