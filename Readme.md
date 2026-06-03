@@ -83,17 +83,28 @@ scvg/
 
 ```
 请求 / → nginx → localhost:3000（Nuxt SSR）→ 返回完整 HTML（含 SEO 元数据）
+请求 /verify → nginx → localhost:3000（Nuxt SSR）→ 人机验证页面
 请求 /home → nginx → /index.html（SPA 入口）→ Vue Router 客户端路由
 请求 /api/* → nginx → localhost:7777（Go 后端 API）
 请求 /api/ai/* → nginx → localhost:7778（AI 后端，流式）
 ```
 
+### 人机验证流程 | CAPTCHA Flow
+
+用户从 SSR 首页（`/`）点击"进入站点"后，跳转至 `/verify` 页面完成阿里云验证码 2.0 V3（弹窗模式），验证通过后重定向至 `/login-choice`（SPA 页面），选择成员登录或访客浏览。验证结果由 Nuxt SSR 服务端通过阿里云 `VerifyIntelligentCaptcha` API 验签，并提供每日 1000 次调用熔断保护。
+
+```
+首页 / → 点击进入站点 → /verify（阿里云验证码）→ 通过 → /login-choice（成员登录 / 访客浏览）
+```
+
 nginx 路由规则：
 - `location = /` → 代理到 Nuxt SSR（端口 3000）
+- `location /verify` → 代理到 Nuxt SSR（端口 3000）
 - `location /` → 返回 SPA 的 `index.html`
+- `location /api/turnstile-verify` → 代理到 Nuxt SSR（端口 3000），阿里云验证码验签
 - `location /api/` → 代理到 Go 后端（端口 7777）
 - `location /api/ai/` → 代理到 AI 后端（端口 7778，streaming）
-- `location /_nuxt/` → Nuxt 静态资源
+- `location ^~ /_nuxt/` → Nuxt 静态资源
 - `location ^~ /pics/` → 头像 / 活动图片静态文件
 
 ---
@@ -196,6 +207,12 @@ npm run build
 | POST | /api/kb/create | 创建 KB 文件/目录 |
 | DELETE | /api/kb/delete | 删除 KB 文件/目录 |
 
+### Nuxt SSR（/api/*）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | /api/turnstile-verify | 阿里云验证码 2.0 服务端验签 |
+
 ### AI 后端（/api/ai/*）
 
 | 方法 | 路径 | 说明 |
@@ -224,11 +241,12 @@ npm run build
 
 - Go 后端：`backend/go-echo-sqlite/config/database.go` — 数据库路径及端口
 - AI 后端：`backend/ai-backend/.env` — DEEPSEEK_API_KEY, KNOWLEDGE_BASE_PATH
+- Nuxt SSR：`Hybrid_scvg/.env` — 阿里云验证码配置（NUXT_ALIYUN_CAPTCHA_ACCESS_KEY_ID, NUXT_ALIYUN_CAPTCHA_ACCESS_KEY_SECRET, NUXT_PUBLIC_ALIYUN_CAPTCHA_SCENE_ID, NUXT_PUBLIC_ALIYUN_CAPTCHA_PREFIX）
 - nginx：`/etc/nginx/conf.d/scvg.conf`
 - systemd 服务：
   - `scvg.service` — Go 后端
   - `ai-backend.service` — TypeScript AI 后端
-  - `hybrid-scvg-ssr.service` — Nuxt 3 SSR 首页
+  - `hybrid-scvg-ssr.service` — Nuxt 3 SSR 首页（含验证码验签 API）
 
 ---
 
