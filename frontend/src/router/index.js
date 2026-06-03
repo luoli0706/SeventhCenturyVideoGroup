@@ -29,6 +29,7 @@ import Games from '../views/Games.vue'
 const routes = [
   // 登录相关页面
   { path: '/', component: LoginChoice },
+  { path: '/login-choice', component: LoginChoice },
   { path: '/member-login', component: MemberLogin },
   { path: '/register', component: NewRegister },
   { path: '/forgot-password', component: ForgotPassword },
