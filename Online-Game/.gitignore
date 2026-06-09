@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Production builds
+dist/
+**/dist/
+
+# SQLite databases & transient data
+*.db
+backend/data/
+
+# Visual Companion temp files
+.superpowers/
+
+# OS files
+.DS_Store
+Thumbs.db
