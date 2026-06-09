@@ -23,6 +23,7 @@ export default defineNuxtConfig({
     aliyunCaptcha: {
       accessKeyId: '',
       accessKeySecret: '',
+      jwtSecret: '',
     },
     public: {
       aliyunCaptchaSceneId: '',

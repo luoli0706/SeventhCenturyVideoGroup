@@ -23,6 +23,9 @@
             <p>验证服务暂未配置</p>
             <a href="/login-choice" class="verify-skip">跳过验证进入 →</a>
           </div>
+          <div v-else-if="checking" class="verify-checking">
+            <p>验证身份中...</p>
+          </div>
           <div v-else class="verify-widget">
             <AliyunCaptcha :scene-id="sceneId" :prefix="prefix" @verify="onToken" />
             <p v-if="verifying" class="verify-checking">验证中...</p>
@@ -52,23 +55,28 @@ const sceneId = computed(() => (config.public.aliyunCaptchaSceneId as string) ||
 const prefix = computed(() => (config.public.aliyunCaptchaPrefix as string) || '')
 const verified = ref(false)
 const verifying = ref(false)
+const checking = ref(false)  // checking saved 30-day token
+
+const CAPTCHA_TOKEN_KEY = 'scvg_captcha_token'
+
+async function _verify(token: string, redirectAfterMs: number) {
+  verified.value = true
+  localStorage.setItem(CAPTCHA_TOKEN_KEY, token)
+  setTimeout(() => {
+    window.location.href = '/login-choice'
+  }, redirectAfterMs)
+}
 
 async function onToken(captchaVerifyParam: string) {
   if (!captchaVerifyParam || verified.value) return
   verifying.value = true
   try {
-    const res = await $fetch('/api/turnstile-verify', {
+    const res: any = await $fetch('/api/turnstile-verify', {
       method: 'POST',
       body: { captchaVerifyParam, sceneId: sceneId.value }
     })
-    if ((res as any).success) {
-      verified.value = true
-      if (import.meta.client) {
-        sessionStorage.setItem('scvg_verified', 'true')
-      }
-      setTimeout(() => {
-        window.location.href = '/login-choice'
-      }, 800)
+    if (res.success) {
+      await _verify(res.captchaToken || '', 800)
     }
   } catch {
     // verification failed
@@ -77,11 +85,33 @@ async function onToken(captchaVerifyParam: string) {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   if (import.meta.client) {
-    // Check session AFTER hydration to avoid SSR/CSR mismatch
+    // Legacy: session-level check
     if (sessionStorage.getItem('scvg_verified') === 'true') {
       window.location.href = '/login-choice'
+      return
+    }
+
+    // 30-day exemption token check
+    const savedToken = localStorage.getItem(CAPTCHA_TOKEN_KEY)
+    if (savedToken) {
+      checking.value = true
+      try {
+        const res: any = await $fetch('/api/turnstile-verify', {
+          method: 'POST',
+          body: { captchaToken: savedToken }
+        })
+        if (res.success) {
+          await _verify(savedToken, 600)
+          return
+        }
+      } catch {
+        // token invalid/expired
+      }
+      // Token failed — clear and fall through to CAPTCHA
+      localStorage.removeItem(CAPTCHA_TOKEN_KEY)
+      checking.value = false
     }
   }
 })

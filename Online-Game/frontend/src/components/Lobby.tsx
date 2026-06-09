@@ -128,7 +128,15 @@ export function Lobby({
   // Render outside of room (Home view)
   if (!roomState) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
+        {/* Back to game list */}
+        <a
+          href="https://7thcv.cn/games"
+          className="absolute top-4 left-4 flex items-center gap-1.5 text-xs text-gray-500 hover:text-indigo-400 transition font-bold"
+        >
+          ← 返回游戏列表
+        </a>
+
         {/* Title */}
         <div className="text-center mb-8 animate-float">
           <h1 className="text-5xl font-black tracking-tight text-white mb-2">
