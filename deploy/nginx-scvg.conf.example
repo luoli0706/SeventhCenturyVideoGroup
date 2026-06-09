@@ -157,9 +157,9 @@ server {
         add_header X-Proxy-By "nginx-ssr";
     }
 
-    # 谁是卧底游戏 SPA
-    location /Game/ {
-        alias /www/wwwroot/scvg/frontend/dist/Game/;
+    # 谁是卧底游戏 SPA（^~ 避免被 .html 正则捕获）
+    location ^~ /Game/ {
+        alias /www/wwwroot/scvg/Online-Game/frontend/dist/;
         try_files $uri $uri/ /Game/index.html;
         add_header X-Frame-Options "SAMEORIGIN";
         add_header X-Content-Type-Options "nosniff";
