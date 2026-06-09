@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { API_BASE } from '../config';
+import { Lock, UserCheck } from 'lucide-react';
 import {
   ArrowLeft,
   BookOpen,
@@ -45,6 +46,20 @@ interface ContributeProps {
   onBack: () => void;
 }
 
+// --- Auth helpers (shared via localStorage with main scvg site) ---
+function isMember(): boolean {
+  try {
+    const raw = localStorage.getItem('userInfo');
+    if (!raw) return false;
+    return JSON.parse(raw).is_member === true;
+  } catch { return false; }
+}
+
+function getAuthHeaders(): Record<string, string> {
+  const token = localStorage.getItem('token');
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
 export function Contribute({ onBack }: ContributeProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -72,6 +87,18 @@ export function Contribute({ onBack }: ContributeProps) {
 
   // Status alerts
   const [status, setStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
+  // Auth gate modal
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // Gate: redirect non-members to login
+  const guardMember = (): boolean => {
+    if (!isMember()) {
+      setShowAuthModal(true);
+      return false;
+    }
+    return true;
+  };
 
   // Load all categories from backend
   const loadCategories = (selectId?: number) => {
@@ -122,11 +149,12 @@ export function Contribute({ onBack }: ContributeProps) {
   const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCatName.trim()) return;
+    if (!guardMember()) return;
 
     try {
       const res = await fetch(API_BASE + '/categories', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ name: newCatName, description: newCatDesc })
       });
       const data = await res.json();
@@ -149,11 +177,12 @@ export function Contribute({ onBack }: ContributeProps) {
   // Handle Category Metadata Update
   const handleUpdateCategory = async () => {
     if (!selectedCat || !editName.trim()) return;
+    if (!guardMember()) return;
 
     try {
       const res = await fetch(`${API_BASE}/categories/${selectedCat.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ name: editName.trim(), description: editDesc.trim() })
       });
       const data = await res.json();
@@ -172,11 +201,13 @@ export function Contribute({ onBack }: ContributeProps) {
   // Handle Category Deletion
   const handleDeleteCategory = async () => {
     if (!selectedCat) return;
+    if (!guardMember()) return;
     if (!window.confirm(`确定要彻底删除词库【${selectedCat.name}】吗？这将删除该词库下的所有词组对和备份记录！`)) return;
 
     try {
       const res = await fetch(`${API_BASE}/categories/${selectedCat.id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { ...getAuthHeaders() }
       });
       if (res.ok) {
         showStatus('success', `词库【${selectedCat.name}】已成功删除`);
@@ -197,11 +228,12 @@ export function Contribute({ onBack }: ContributeProps) {
   const handleAddWordPair = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCat || !wordA.trim() || !wordB.trim()) return;
+    if (!guardMember()) return;
 
     try {
       const res = await fetch(`${API_BASE}/categories/${selectedCat.id}/words`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ word_a: wordA.trim(), word_b: wordB.trim() })
       });
       const data = await res.json();
@@ -224,10 +256,12 @@ export function Contribute({ onBack }: ContributeProps) {
   // Handle Deleting Word Pair
   const handleDeleteWordPair = async (wordId: number) => {
     if (!selectedCat) return;
+    if (!guardMember()) return;
 
     try {
       const res = await fetch(`${API_BASE}/categories/${selectedCat.id}/words/${wordId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { ...getAuthHeaders() }
       });
       if (res.ok) {
         showStatus('success', '词组对已删除');
@@ -245,11 +279,13 @@ export function Contribute({ onBack }: ContributeProps) {
   // Handle Rollback
   const handleRollback = async (backupId: number, backupDate: string) => {
     if (!selectedCat) return;
+    if (!guardMember()) return;
     if (!window.confirm(`确定要将词库【${selectedCat.name}】回退至 ${new Date(backupDate).toLocaleString()} 的备份版本吗？这会覆盖当前的词汇对列表！`)) return;
 
     try {
       const res = await fetch(`${API_BASE}/categories/${selectedCat.id}/backups/${backupId}/rollback`, {
-        method: 'POST'
+        method: 'POST',
+        headers: { ...getAuthHeaders() }
       });
       if (res.ok) {
         showStatus('success', '已成功回退到指定备份版本！');
@@ -625,6 +661,29 @@ export function Contribute({ onBack }: ContributeProps) {
           )}
         </div>
       </div>
+
+      {/* AUTH GATE MODAL */}
+      {showAuthModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-sm glass-card rounded-2xl p-6 border border-slate-800 text-left space-y-4">
+            <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+              <Lock className="w-5 h-5 text-red-400" />
+              <h3 className="text-sm font-bold text-white">需要成员权限</h3>
+            </div>
+
+            <p className="text-xs text-gray-400 leading-relaxed">
+              仅限社团成员管理词汇库，请先登录成员账号。
+            </p>
+
+            <button
+              onClick={() => setShowAuthModal(false)}
+              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 rounded-xl transition cursor-pointer"
+            >
+              我知道了
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* BACKUP PREVIEW MODAL */}
       {previewBackup && (

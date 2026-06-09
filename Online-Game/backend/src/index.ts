@@ -1,5 +1,6 @@
 import http from 'http';
 import url from 'url';
+import jwt from 'jsonwebtoken';
 import { WebSocketServer, WebSocket } from 'ws';
 import { RoomManager } from './roomManager';
 import {
@@ -18,7 +19,28 @@ import {
 import { WsMessage } from './types';
 
 const PORT = 17712;
+const JWT_SECRET = 'seventhcentury-secret-key';
 const roomManager = new RoomManager();
+
+// JWT auth – only club members can manage vocab
+function requireMember(req: http.IncomingMessage, res: http.ServerResponse): boolean {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    jsonResponse(res, 401, { error: '请先登录社团成员账号' });
+    return false;
+  }
+  try {
+    const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET) as any;
+    if (!decoded.is_member) {
+      jsonResponse(res, 403, { error: '仅限社团成员操作' });
+      return false;
+    }
+    return true;
+  } catch {
+    jsonResponse(res, 401, { error: '登录已过期，请重新登录' });
+    return false;
+  }
+}
 
 // Helper to write JSON response
 function jsonResponse(res: http.ServerResponse, status: number, data: any) {
@@ -84,6 +106,7 @@ const server = http.createServer(async (req, res) => {
 
     // 3. POST /api/categories
     if (req.method === 'POST' && pathname === '/api/categories') {
+      if (!requireMember(req, res)) return;
       const body = await readJsonBody(req);
       if (!body.name) {
         jsonResponse(res, 400, { error: 'Category name is required' });
@@ -96,6 +119,7 @@ const server = http.createServer(async (req, res) => {
 
     // 4. POST /api/categories/:id/words
     if (req.method === 'POST' && parts[1] === 'api' && parts[2] === 'categories' && parts[4] === 'words' && parts.length === 5) {
+      if (!requireMember(req, res)) return;
       const catId = parseInt(parts[3], 10);
       if (isNaN(catId)) {
         jsonResponse(res, 400, { error: 'Invalid Category ID' });
@@ -113,6 +137,7 @@ const server = http.createServer(async (req, res) => {
 
     // New 5: PUT /api/categories/:id
     if (req.method === 'PUT' && parts[1] === 'api' && parts[2] === 'categories' && parts.length === 4) {
+      if (!requireMember(req, res)) return;
       const catId = parseInt(parts[3], 10);
       if (isNaN(catId)) {
         jsonResponse(res, 400, { error: 'Invalid Category ID' });
@@ -130,6 +155,7 @@ const server = http.createServer(async (req, res) => {
 
     // New 6: DELETE /api/categories/:id
     if (req.method === 'DELETE' && parts[1] === 'api' && parts[2] === 'categories' && parts.length === 4) {
+      if (!requireMember(req, res)) return;
       const catId = parseInt(parts[3], 10);
       if (isNaN(catId)) {
         jsonResponse(res, 400, { error: 'Invalid Category ID' });
@@ -142,6 +168,7 @@ const server = http.createServer(async (req, res) => {
 
     // New 7: DELETE /api/categories/:catId/words/:wordId
     if (req.method === 'DELETE' && parts[1] === 'api' && parts[2] === 'categories' && parts[4] === 'words' && parts.length === 6) {
+      if (!requireMember(req, res)) return;
       const wordId = parseInt(parts[5], 10);
       if (isNaN(wordId)) {
         jsonResponse(res, 400, { error: 'Invalid Word ID' });
@@ -166,6 +193,7 @@ const server = http.createServer(async (req, res) => {
 
     // New 9: POST /api/categories/:catId/backups/:backupId/rollback
     if (req.method === 'POST' && parts[1] === 'api' && parts[2] === 'categories' && parts[4] === 'backups' && parts[6] === 'rollback' && parts.length === 7) {
+      if (!requireMember(req, res)) return;
       const catId = parseInt(parts[3], 10);
       const backupId = parseInt(parts[5], 10);
       if (isNaN(catId) || isNaN(backupId)) {
