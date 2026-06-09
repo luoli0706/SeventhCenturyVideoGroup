@@ -35,6 +35,14 @@
             </div>
             <span class="gc-play">进入 →</span>
           </div>
+          <a class="game-card" href="/Game/">
+            <div class="gc-icon">🕵️</div>
+            <div class="gc-body">
+              <h3 class="gc-title">谁是卧底</h3>
+              <p class="gc-desc">Who is Undercover — 在线联机词汇推理游戏</p>
+            </div>
+            <span class="gc-play">进入 →</span>
+          </a>
         </div>
       </template>
 
