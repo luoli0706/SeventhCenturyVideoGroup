@@ -10,14 +10,19 @@ func InitRoutes(e *echo.Echo) {
 	api := e.Group("/api")
 
 	// 认证相关路由（无需权限）
-	api.POST("/login", controllers.Login)
-	api.POST("/register", controllers.Register) // 提交注册申请，审批通过后才创建成员
-	api.POST("/forgot-password", controllers.ForgotPassword)
-	api.POST("/change-password", controllers.ChangePassword)
+	//
+	// 全部限流：匿名每 IP 每分钟 5 次，管理员 50 次（审批页会连续刷新/批量处理）。
+	// 这几个接口是登录爆破、注册灌水、备忘码撞码的入口，且除 change-password
+	// 外都无需认证。每条路由各持一套独立的水桶，互不挤占。
+	api.POST("/login", controllers.Login, controllers.RateLimit(5, 50))
+	api.POST("/register", controllers.Register, controllers.RateLimit(5, 50)) // 提交注册申请，审批通过后才创建成员
+	api.POST("/forgot-password", controllers.ForgotPassword, controllers.RateLimit(5, 50))
+	api.POST("/change-password", controllers.ChangePassword, controllers.RateLimit(5, 50))
 	api.GET("/memory-code", controllers.RequireAdmin(controllers.GetMemoryCode))
 
-	// 注册审批（仅管理员）
-	admin := api.Group("/admin", controllers.RequireAdmin)
+	// 注册审批（仅管理员）。限流排在 RequireAdmin 之前，未携带 token 的
+	// 探测请求也照样计数，否则绕过鉴权失败就等于绕过限流。
+	admin := api.Group("/admin", controllers.RateLimit(5, 50), controllers.RequireAdmin)
 	admin.GET("/applications", controllers.ListApplications)
 	admin.POST("/applications/:id/approve", controllers.ApproveApplication)
 	admin.POST("/applications/:id/reject", controllers.RejectApplication)
