@@ -46,12 +46,20 @@ export function createChatRouter(agent: AgentGraph, history: ChatHistory): Route
       }
       const session = sessions.get(sid)!
 
+      // 每轮都透传 cn：system prompt 是每轮重建的，而它会话历史里只存用户原话
+      // （身份那句不在历史里），所以只在首轮传的话，第二轮起模型就不知道在跟谁
+      // 说话了——首轮「你好」、次轮「我的职位是什么」就会哑掉。
+      // 代价是每轮多几十个 token，相对 8192 的输出预算可忽略。
+      if (!uid) {
+        console.warn(`[Chat] 会话 ${sid} 未取到 cn，本轮不向模型透传身份`)
+      }
+
       // Save user message to SQLite
       history.addMessage(sid, 'user', message)
 
       // Run the ReACT agent
       const historyMessages = session.history.slice(-6) // last 3 turns
-      const generator = agent.processQuery(message, historyMessages)
+      const generator = agent.processQuery(message, historyMessages, { userName: uid })
 
       for await (const event of generator) {
         res.write(JSON.stringify(event) + '\n')

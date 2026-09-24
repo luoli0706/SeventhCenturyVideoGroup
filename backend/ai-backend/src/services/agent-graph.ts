@@ -33,6 +33,7 @@ const NAVIGATOR_PROMPT = `你是一个知识库导航系统。你的任务是从
 {{INDEX}}
 
 用户问题：{{QUERY}}
+{{ASKER}}
 {{EXISTING_CONTEXT}}
 
 规则：
@@ -44,6 +45,31 @@ const NAVIGATOR_PROMPT = `你是一个知识库导航系统。你的任务是从
 6. 最多选择3个最相关的标题
 
 输出格式：每行一个标题（例如：MAD 知识核心 > 主要分类）`
+
+export interface QueryOptions {
+  /**
+   * 提问者的社团昵称（cn）。由调用方每轮传入，用来让模型知道对话对象是谁。
+   * 注意必须每轮都传：system prompt 每轮重建，而身份那句不进会话历史，
+   * 只传首轮的话第二轮起就丢了。
+   */
+  userName?: string
+}
+
+/**
+ * cn 来自前端 localStorage，是用户可控输入。直接拼进 system prompt 等于开了一条
+ * 比用户消息更高权限的注入通道（用户消息是 user 角色，还能被模型当作提问对待；
+ * system 角色则是「规则」）。这里做收敛：只留中日韩文字、字母数字和少量连接符，
+ * 去掉换行等一切可用于「另起一条指令」的字符，并限制长度。
+ * 注意这是防御性收敛，不是白名单校验 —— 合法昵称本身并无固定格式。
+ */
+export function sanitizeUserName(raw: string | undefined): string {
+  if (!raw) return ''
+  return raw
+    .replace(/[\u0000-\u001f\u007f]/g, '')
+    .replace(/[^\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}a-zA-Z0-9_\-·（）()]/gu, '')
+    .trim()
+    .slice(0, 32)
+}
 
 export class AgentGraph {
   private openai: OpenAI
@@ -61,8 +87,12 @@ export class AgentGraph {
    * Navigate the knowledge base: LLM picks relevant sections from the index.
    * Returns resolved heading paths (may be empty if KB is irrelevant).
    */
-  async navigate(query: string, existingContext: string[]): Promise<string[]> {
+  async navigate(query: string, existingContext: string[], userName?: string): Promise<string[]> {
     const index = this.navigator.getIndex()
+    const asker = sanitizeUserName(userName)
+    const askerBlock = asker
+      ? `提问者：${asker}（提问的社团成员本人；若问题与他本人相关，优先选择其成员详情节点）`
+      : ''
     const existingBlock = existingContext.length > 0
       ? `\n已加载的内容节点：${existingContext.map((c, i) => {
           const title = c.split('\n')[0]?.substring(0, 80) || `[节点${i+1}]`
@@ -73,6 +103,7 @@ export class AgentGraph {
     const prompt = NAVIGATOR_PROMPT
       .replace('{{INDEX}}', index)
       .replace('{{QUERY}}', query)
+      .replace('{{ASKER}}', askerBlock)
       .replace('{{EXISTING_CONTEXT}}', existingBlock)
 
     const response = await this.openai.chat.completions.create({
@@ -154,12 +185,14 @@ export class AgentGraph {
    */
   async* processQuery(
     query: string,
-    history: { role: 'system' | 'user' | 'assistant'; content: string }[]
+    history: { role: 'system' | 'user' | 'assistant'; content: string }[],
+    options: QueryOptions = {}
   ): AsyncGenerator<{ type: string; content?: string; paths?: string[] }> {
-    console.log(`[Agent] Processing query: "${query.substring(0, 60)}..."`)
+    const userName = sanitizeUserName(options.userName)
+    console.log(`[Agent] Processing query: "${query.substring(0, 60)}..."${userName ? ` (asker=${userName})` : ''}`)
 
     // === ReACT Round 1: Initial navigation ===
-    const paths1 = await this.navigate(query, [])
+    const paths1 = await this.navigate(query, [], userName)
     const allPaths = [...paths1]
 
     // === ReACT Round 2: Optional supplementary navigation ===
@@ -168,7 +201,7 @@ export class AgentGraph {
         const c = this.navigator.loadSubtree(p)
         return c.substring(0, 100)
       })
-      const paths2 = await this.navigate(query, loadedParts)
+      const paths2 = await this.navigate(query, loadedParts, userName)
       for (const p of paths2) {
         if (!allPaths.includes(p)) allPaths.push(p)
       }
@@ -205,10 +238,16 @@ export class AgentGraph {
       ? `${contextSection}\n请基于以上知识回答：\n\n${query}`
       : query
 
+    // 每轮把提问者身份交代给模型。这一句只随 system prompt 走，不进会话历史
+    // —— 会话历史里存的始终是用户原话，不会把 cn 落库。
+    const systemPrompt = userName
+      ? `${SYSTEM_PROMPT}\n\n## 当前对话\n正在提问的是社团成员「${userName}」。可以自然地称呼对方；涉及他本人的情况（职位、方向、加入年份等），请结合知识库中的成员信息作答。`
+      : SYSTEM_PROMPT
+
     const stream = await this.openai.chat.completions.create({
       model: env.DEEPSEEK_CHAT_MODEL,
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: systemPrompt },
         ...historyMessages.slice(-6), // last 3 turns of context
         { role: 'user', content: userContent },
       ],
