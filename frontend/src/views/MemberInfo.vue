@@ -23,6 +23,7 @@
             <a-option value="动画">动画</a-option>
             <a-option value="静止系">静止系</a-option>
             <a-option value="三维">三维</a-option>
+            <a-option value="平面">平面</a-option>
           </a-select>
         </a-form-item>
         <a-form-item label="在役状态" required>
