@@ -228,7 +228,8 @@ const genderOptions = [
   { label: '其他', value: '其他' },
 ]
 
-const directionOptions = ['动画', '静止系', '三维']
+// 顺序与首页部门条一致（/home 的 departments + 末尾的平面）
+const directionOptions = ['动画', '静止系', '三维', '平面']
 
 const statusOptions = [
   { label: '仍然在役', value: '仍然在役' },
@@ -529,10 +530,12 @@ onMounted(() => {
 /* Option buttons (sex, direction, status) */
 .option-group {
   display: flex;
+  flex-wrap: wrap; /* 方向现有 4 项，窄屏放不下时换行而不是把字挤扁 */
   gap: 8px;
 }
 .option-btn {
   flex: 1;
+  min-width: 68px; /* 够放下「静止系」三个字 + 内边距 */
   padding: 8px 12px;
   background: rgba(255,255,255,0.02);
   border: 1px solid rgba(255,255,255,0.04);
