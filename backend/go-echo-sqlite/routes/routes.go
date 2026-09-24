@@ -16,6 +16,7 @@ func InitRoutes(e *echo.Echo) {
 	// 外都无需认证。每条路由各持一套独立的水桶，互不挤占。
 	api.POST("/login", controllers.Login, controllers.RateLimit(5, 50))
 	api.POST("/register", controllers.Register, controllers.RateLimit(5, 50)) // 提交注册申请，审批通过后才创建成员
+	api.GET("/register/check-cn", controllers.CheckCN, controllers.RateLimit(5, 50))
 	api.POST("/forgot-password", controllers.ForgotPassword, controllers.RateLimit(5, 50))
 	api.POST("/change-password", controllers.ChangePassword, controllers.RateLimit(5, 50))
 	api.GET("/memory-code", controllers.RequireAdmin(controllers.GetMemoryCode))

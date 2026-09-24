@@ -39,7 +39,14 @@
               placeholder="请输入您的成员姓名"
               class="form-input"
               :maxlength="20"
+              @blur="checkCN"
+              @input="resetCNCheck"
             />
+            <p v-if="cnCheck.checking" class="field-hint hint-muted">正在检查昵称…</p>
+            <p
+              v-else-if="cnCheck.message"
+              :class="['field-hint', cnCheck.available ? 'hint-ok' : 'hint-bad']"
+            >{{ cnCheck.message }}</p>
           </div>
 
           <!-- 密码 -->
@@ -240,6 +247,10 @@ const form = reactive({
   remark: ''
 })
 
+// 昵称查重结果。available 为 null 表示「还没查/查不出来」，
+// 此时不拦提交 —— 后端在 POST /api/register 时会再校验一次。
+const cnCheck = reactive({ checking: false, available: null, message: '' })
+
 function updateTheme() {
   isDark.value = document.body.getAttribute('arco-theme') === 'dark'
 }
@@ -248,6 +259,36 @@ function autoResize(e) {
   const el = e.target
   el.style.height = 'auto'
   el.style.height = el.scrollHeight + 'px'
+}
+
+function resetCNCheck() {
+  cnCheck.available = null
+  cnCheck.message = ''
+}
+
+// 只在失焦时查。/api/register/check-cn 与 /api/register 同档限流
+// （5 次/分/IP），逐次输入即查会让正常填表的人先撞上限流。
+async function checkCN() {
+  const cn = form.cn.trim()
+  if (!cn) {
+    resetCNCheck()
+    return
+  }
+
+  cnCheck.checking = true
+  try {
+    const { data } = await api.get('/api/register/check-cn', { params: { cn } })
+    cnCheck.available = data.available
+    cnCheck.message = data.message
+  } catch (error) {
+    // 限流或网络异常不阻断填表：给一句说明，提交时后端仍会校验
+    cnCheck.available = null
+    cnCheck.message = error.response?.status === 429
+      ? '查询过于频繁，提交时仍会校验昵称'
+      : ''
+  } finally {
+    cnCheck.checking = false
+  }
 }
 
 async function handleRegister() {
@@ -267,6 +308,10 @@ async function handleRegister() {
     alert('密码长度至少6位')
     return
   }
+  if (cnCheck.available === false) {
+    alert(cnCheck.message || '该昵称已被使用，请换一个')
+    return
+  }
 
   loading.value = true
   try {
@@ -283,6 +328,12 @@ async function handleRegister() {
     registerSuccess.value = true
   } catch (error) {
     const errorMsg = error.response?.data?.error || '提交失败，请重试'
+    // 409 = 后端查重没过（可能是没等到失焦检查就提交了）。
+    // 同步到昵称提示上，用户改完就能直接重提。
+    if (error.response?.status === 409) {
+      cnCheck.available = false
+      cnCheck.message = errorMsg
+    }
     alert(errorMsg)
   } finally {
     loading.value = false
@@ -421,6 +472,17 @@ onMounted(() => {
   text-transform: none;
   letter-spacing: 0;
 }
+
+/* 昵称查重提示 */
+.field-hint {
+  font-size: 11px;
+  margin: 2px 0 0;
+  line-height: 1.5;
+  letter-spacing: 0.3px;
+}
+.hint-muted { color: rgba(255,255,255,0.15); }
+.hint-ok { color: rgba(15,155,142,0.85); }
+.hint-bad { color: rgba(230,110,110,0.9); }
 
 /* Inputs */
 .form-input {
@@ -645,6 +707,9 @@ onMounted(() => {
 .theme-light .form-subtitle { color: rgba(0,0,0,0.12); }
 .theme-light .form-label { color: rgba(0,0,0,0.18); }
 .theme-light .label-optional { color: rgba(0,0,0,0.08); }
+.theme-light .hint-muted { color: rgba(0,0,0,0.2); }
+.theme-light .hint-ok { color: #0f9b8e; }
+.theme-light .hint-bad { color: rgba(200,60,60,0.9); }
 .theme-light .form-input {
   background: #f5f7fb;
   border-color: rgba(0,0,0,0.06);

@@ -51,6 +51,43 @@ func toApplicationDTO(a models.RegistrationApplication) applicationDTO {
 	}
 }
 
+// CheckCN 检查昵称能否使用，供注册页在提交前给出提示。
+//
+// 判断口径与 Register 保持一致（已是成员 / 有待审申请），否则会出现
+// 「页面说能用、提交却被拒」的矛盾。
+//
+// 关于探测面：它只回布尔值与一句笼统说明，泄露的信息不超过
+// POST /api/register 的返回值（提交时同样会因重名被拒），也不超过
+// 本就公开且无门槛的 /api/club_members 成员名单，因此不构成新的探测面。
+func CheckCN(c echo.Context) error {
+	cn := strings.TrimSpace(c.QueryParam("cn"))
+	if cn == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "缺少 cn 参数"})
+	}
+
+	var member models.ClubMember
+	if err := config.DB.Where("cn = ?", cn).First(&member).Error; err == nil {
+		return c.JSON(http.StatusOK, echo.Map{
+			"available": false,
+			"message":   "该昵称已被使用，请换一个",
+		})
+	}
+
+	var pending models.RegistrationApplication
+	if err := config.DB.Where("cn = ? AND state = ?", cn, models.ApplicationPending).
+		First(&pending).Error; err == nil {
+		return c.JSON(http.StatusOK, echo.Map{
+			"available": false,
+			"message":   "该昵称已提交过申请，正在审核中",
+		})
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{
+		"available": true,
+		"message":   "该昵称可以使用",
+	})
+}
+
 // ListApplications 列出注册申请（管理员）。
 // 查询参数 state: pending | approved | rejected | all，默认 pending。
 func ListApplications(c echo.Context) error {
