@@ -35,6 +35,10 @@ export class ChatHistory {
   }
 
   private init(): void {
+    // 所有时间戳统一用 datetime('now','localtime')，即服务所在时区的本地时间。
+    // 本机为 Asia/Shanghai（UTC+0800），故落库即 UTC+8。
+    // 注意：这依赖服务器的系统时区 —— 若日后把系统时区改成 UTC，
+    // 存量数据与新增数据的含义都会跟着变，迁移前需一并考虑。
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS sessions (
         id TEXT PRIMARY KEY,
@@ -62,26 +66,41 @@ export class ChatHistory {
   }
 
   createSession(id: string, userId: string, title?: string): void {
-    const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
-    const stmt = this.db.prepare(
-      'INSERT OR IGNORE INTO sessions (id, user_id, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
-    )
-    stmt.run(id, userId, title || '', now, now)
+    // 时间戳一律交给 SQLite 生成（表默认值与 messages 用的都是
+    // datetime('now','localtime')）。原先这里用 JS 的 toISOString() 手写，
+    // 那是 UTC，而 messages 那边是本地时间 —— 同一会话的两张表差 8 小时。
+    this.db.prepare(
+      'INSERT OR IGNORE INTO sessions (id, user_id, title) VALUES (?, ?, ?)'
+    ).run(id, userId, title || '')
   }
 
   updateSessionTitle(sessionId: string, title: string): void {
-    const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
-    this.db.prepare('UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?').run(title, now, sessionId)
+    this.db.prepare(
+      "UPDATE sessions SET title = ?, updated_at = datetime('now', 'localtime') WHERE id = ?"
+    ).run(title, sessionId)
   }
 
   touchSession(sessionId: string): void {
-    const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
-    this.db.prepare('UPDATE sessions SET updated_at = ? WHERE id = ?').run(now, sessionId)
+    this.db.prepare(
+      "UPDATE sessions SET updated_at = datetime('now', 'localtime') WHERE id = ?"
+    ).run(sessionId)
   }
 
   addMessage(sessionId: string, role: 'user' | 'assistant' | 'system', content: string): void {
     this.db.prepare('INSERT INTO messages (session_id, role, content) VALUES (?, ?, ?)').run(sessionId, role, content)
     this.touchSession(sessionId)
+  }
+
+  /**
+   * 会话总数（不限用户与条数上限）。仅用于启动日志。
+   *
+   * 启动时还没有用户身份，原先直接调的是按用户过滤的 getSessions() 且没传参：
+   * userId 落成 undefined → 绑定为 NULL → WHERE user_id = NULL 恒不命中，
+   * 于是那行日志永远打印「0 previous sessions」，看着像历史库是空的。
+   */
+  countSessions(): number {
+    const row = this.db.prepare('SELECT COUNT(*) AS n FROM sessions').get() as { n: number }
+    return row.n
   }
 
   getSessions(userId: string): Session[] {

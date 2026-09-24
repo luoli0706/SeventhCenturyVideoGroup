@@ -9,6 +9,12 @@ export function createHistoryRouter(history: ChatHistory): Router {
     return req.headers['x-user-cn'] as string || req.query.userId as string || ''
   }
 
+  // @types/express v5 起 req.params 的取值类型是 string | string[]，而 :sessionId
+  // 这类路由参数不可能是数组。在这里收窄一次，别让 string[] 流进 SQL 参数。
+  function pathParam(value: string | string[] | undefined): string {
+    return Array.isArray(value) ? (value[0] ?? '') : (value ?? '')
+  }
+
   // GET /api/ai/sessions - list sessions for current user
   router.get('/sessions', (req: Request, res: Response) => {
     try {
@@ -33,7 +39,7 @@ export function createHistoryRouter(history: ChatHistory): Router {
         res.status(400).json({ error: '缺少用户标识' })
         return
       }
-      const { sessionId } = req.params
+      const sessionId = pathParam(req.params.sessionId)
       const messages = history.getMessages(sessionId, userId)
       res.json({ sessionId, messages })
     } catch (err) {
@@ -50,7 +56,7 @@ export function createHistoryRouter(history: ChatHistory): Router {
         res.status(400).json({ error: '缺少用户标识' })
         return
       }
-      const { sessionId } = req.params
+      const sessionId = pathParam(req.params.sessionId)
       history.deleteSession(sessionId, userId)
       res.json({ ok: true })
     } catch (err) {

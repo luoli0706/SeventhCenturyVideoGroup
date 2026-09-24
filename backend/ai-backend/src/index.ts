@@ -21,7 +21,7 @@ async function bootstrap() {
   // Initialize chat history (SQLite)
   console.log('\n--- Initializing Chat History ---')
   const history = new ChatHistory()
-  const sessionCount = history.getSessions().length
+  const sessionCount = history.countSessions()
   console.log(`Chat history: ${sessionCount} previous sessions`)
 
   // Create the ReACT agent
