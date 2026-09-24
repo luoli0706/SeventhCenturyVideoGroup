@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"seventhcenturyvideogroup/backend/go-echo-sqlite/config"
@@ -10,6 +11,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 var jwtSecret = []byte("seventhcentury-secret-key")
@@ -198,6 +200,24 @@ func VerifyToken(next echo.HandlerFunc) echo.HandlerFunc {
 		c.Set("user_cn", claims.CN)
 		c.Set("is_member", claims.IsMember)
 		c.Set("is_admin", claims.IsAdmin)
+
+		// token 里的身份只是签发那一刻的快照，有效期 24h。直接采信意味着
+		// 把某人撤下管理员（或除名）后，其旧 token 还能照用一整天 —— 对
+		// 一个审批系统来说，撤权不生效是实打实的问题。这里按 cn 回查一次。
+		var member models.ClubMember
+		err = config.DB.Where("cn = ?", claims.CN).First(&member).Error
+		switch {
+		case err == nil:
+			c.Set("is_member", member.IsMember)
+			c.Set("is_admin", member.IsAdmin)
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			// 账号已被删除：立刻失去一切权限
+			c.Set("is_member", false)
+			c.Set("is_admin", false)
+		default:
+			// 数据库故障：保留 token 内的声明。宁可短暂放宽，也不因为
+			// 一次查询抖动把全站已登录用户踢成 403。
+		}
 
 		return next(c)
 	}
