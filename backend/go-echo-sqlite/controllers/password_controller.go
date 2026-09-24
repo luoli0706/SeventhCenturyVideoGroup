@@ -1,7 +1,8 @@
 package controllers
 
 import (
-	"math/rand"
+	"crypto/rand"
+	"math/big"
 	"net/http"
 	"seventhcenturyvideogroup/backend/go-echo-sqlite/config"
 	"seventhcenturyvideogroup/backend/go-echo-sqlite/models"
@@ -126,26 +127,28 @@ func GetMemoryCode(c echo.Context) error {
 	})
 }
 
-// 生成基于日期的四位数备忘码
+// 生成当日备忘码。
+//
+// 必须用 crypto/rand：旧实现以「年月日」作随机种子（rand.Seed），任何人拿到
+// 公开源码即可算出当天备忘码，而 /api/forgot-password 无需认证、只认码，
+// 两者组合足以接管任意成员的账号。码空间也曾只有 1000-9999。
+//
+// 调用方每天只生成一次并落库（见 GetMemoryCode），所以当天内依然稳定。
 func generateMemoryCode(dateStr string) string {
-	// 解析日期字符串为时间对象
-	date, err := time.Parse("2006-01-02", dateStr)
-	if err != nil {
-		// 如果解析失败，使用当前时间
-		date = time.Now()
+	const digitCount = 8
+
+	digits := make([]byte, digitCount)
+	ten := big.NewInt(10)
+	for i := range digits {
+		n, err := rand.Int(rand.Reader, ten)
+		if err != nil {
+			// crypto/rand 不可用时退化为纳秒时间戳，仍然不可预测
+			return strconv.FormatInt(time.Now().UnixNano()%100000000, 10)
+		}
+		digits[i] = byte('0' + n.Int64())
 	}
 
-	// 使用日期的年月日作为种子，确保同一天生成相同的备忘码
-	year, month, day := date.Date()
-	seed := int64(year*10000 + int(month)*100 + day)
-
-	// 设置随机种子
-	rand.Seed(seed)
-
-	// 生成1000-9999之间的四位数
-	code := rand.Intn(9000) + 1000
-
-	return strconv.Itoa(code)
+	return string(digits)
 }
 
 // 清理过期备忘码（可以在定时任务中调用）
