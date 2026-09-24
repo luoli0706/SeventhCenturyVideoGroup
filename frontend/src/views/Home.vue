@@ -19,6 +19,7 @@
 
         <div class="dept-strip">
           <router-link v-for="d in departments" :key="d.to" :to="d.to" class="dept-chip">{{ d.label }}</router-link>
+          <a class="dept-chip" href="https://7thcv.cn/psd">平面</a>
         </div>
 
         <div class="section-search">
