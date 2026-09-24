@@ -1,0 +1,15 @@
+[Unit]
+Description=Who is Undercover Game Backend — WebSocket + HTTP
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/www/wwwroot/scvg/Online-Game/backend
+ExecStart=/usr/bin/node dist/index.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
