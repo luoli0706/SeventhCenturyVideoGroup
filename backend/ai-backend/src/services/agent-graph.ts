@@ -82,15 +82,34 @@ export class AgentGraph {
         { role: 'user', content: prompt },
       ],
       temperature: 0.1,
-      max_tokens: 512,
+      // 这是推理模型，推理 token 与可见输出共用这个额度。导航的输出只有
+      // 几十个 token，但推理实测要 300~2600 个。旧的 512 会被推理吃光，
+      // 返回 finish_reason=length 且 content 为空串（实测 6 次里 5 次），
+      // 于是整轮问答拿不到任何知识库上下文。
+      max_tokens: 8192,
     })
 
-    const content = response.choices[0]?.message?.content || ''
+    const content = (response.choices[0]?.message?.content || '').trim()
+    const finishReason = response.choices[0]?.finish_reason
     const lines = content.split('\n')
       .map(l => l.trim())
       .filter(l => l && !l.startsWith('```') && !l.startsWith('DONE') && !l.startsWith('SKIP'))
 
-    if (lines.length === 0) return []
+    if (lines.length === 0) {
+      // DONE / SKIP_KB 是模型按规则给出的正常答复（第二轮尤其常见），不是异常。
+      // 真正要警惕的是「一个可用字符都没吐出来」：这通常意味着 max_tokens
+      // 被推理 token 吃光，本轮拿不到任何知识库内容，而用户只会看到
+      // 「我不知道」—— 原先这里完全静默，日志里毫无痕迹。
+      if (content.startsWith('DONE') || content.startsWith('SKIP')) {
+        console.log(`[Agent] Navigation: ${content.split('\n')[0]} — 无需更多节点`)
+      } else {
+        console.warn(
+          `[Agent] Navigation returned no usable content (finish_reason=${finishReason}, ` +
+          `raw=${JSON.stringify(content.slice(0, 80))}); 本轮无知识库上下文`
+        )
+      }
+      return []
+    }
 
     // Resolve each line to a valid heading path
     const resolved: string[] = []
@@ -194,7 +213,9 @@ export class AgentGraph {
         { role: 'user', content: userContent },
       ],
       stream: true,
-      max_tokens: 4096,
+      // 同上：推理 token 同样占这个额度，4096 在「长回答 + 重度推理」下会把
+      // 回答截断在半句上
+      max_tokens: 8192,
       temperature: 0.7,
     })
 

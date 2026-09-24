@@ -220,10 +220,36 @@ export class KnowledgeNavigator {
   }
 
   /**
-   * Try to find a heading path by fuzzy matching.
-   * Used when the LLM's output doesn't exactly match a heading.
+   * 把模型输出解析成一个真实存在的标题键。
+   *
+   * 模型按 prompt 里给的示例（"例如：MAD 知识核心 > 主要分类"），输出的
+   * 往往是路径形式 "A > B > C"，而 nodeMap 的键是扁平的标题文本。原先
+   * 拿整串去比，只能靠子串兜底命中，且命中的是最浅的那个祖先 —— 问
+   * 「核心成员」会把整个成员目录全灌进来，「优先选更具体的节点」形同虚设。
+   *
+   * 现在按 ">" 拆段，从最深（最具体）的一段开始回溯，先精确后模糊。
    */
   findClosestHeading(text: string): string | null {
+    const normalized = text.trim()
+    if (!normalized) return null
+
+    const segments = normalized.split('>').map(s => s.trim()).filter(Boolean)
+    if (segments.length === 0) return null
+
+    // 1) 从最深一段开始精确匹配
+    for (let i = segments.length - 1; i >= 0; i--) {
+      if (this.nodeMap.has(segments[i])) return segments[i]
+    }
+
+    // 2) 都不精确命中时退回模糊匹配。只对最深一段做，
+    //    否则又会兜底到最浅的祖先，回到修复前的行为。
+    return this.fuzzyMatch(segments[segments.length - 1])
+  }
+
+  /**
+   * 原有的三级模糊匹配：剥括号 → 子串 → 前缀。
+   */
+  private fuzzyMatch(text: string): string | null {
     // Exact match
     if (this.nodeMap.has(text)) return text
 
