@@ -14,6 +14,8 @@ export class KnowledgeNavigator {
   private nodeMap: Map<string, HeadingMapEntry> = new Map()
   private indexContent: string = ''
   private totalFiles: number = 0
+  /** 上次构建索引时 索引.md 的指纹（mtime + 大小），用于判断快照是否过期。 */
+  private indexSignature: string = ''
 
   constructor(basePath: string) {
     this.basePath = basePath
@@ -23,20 +25,69 @@ export class KnowledgeNavigator {
    * Initialize: read index, scan directory tree, build heading map.
    */
   initialize(): void {
+    this.rebuild()
+  }
+
+  /**
+   * 重建索引快照：读 索引.md + 扫描目录树，得到 indexContent 与 nodeMap。
+   */
+  private rebuild(): void {
     const indexPath = path.join(this.basePath, '索引.md')
     if (!fs.existsSync(indexPath)) {
       throw new Error(`Index file not found: ${indexPath}`)
     }
 
+    // 先取指纹再读内容。反过来的话，若文件恰好在 read 与 stat 之间被改写，
+    // 就会把一个更新的指纹配上更旧的内容，之后再也不会判定为过期。
+    // 这个顺序下最坏情况只是多重扫一次。
+    const stat = fs.statSync(indexPath)
+    const signature = `${stat.mtimeMs}:${stat.size}`
+
     this.indexContent = fs.readFileSync(indexPath, 'utf-8')
+    this.nodeMap = new Map()
     this.scanDirectory(this.basePath)
+    this.indexSignature = signature
+
     console.log(`[KnowledgeNavigator] Index loaded, ${this.nodeMap.size} headings mapped, ${this.totalFiles} files`)
+  }
+
+  /**
+   * 索引快照过期则重建。
+   *
+   * 索引原先只在进程启动时构建一次，而「审批通过 → SyncNewMember 追加成员
+   * 文件与 索引.md」发生在服务运行期间，于是运行期新加入的成员对 AI 永久
+   * 不可见，要等下次重启才补上。这里按 索引.md 的 (mtime, size) 做一次廉价
+   * 的过期检查，代价是每次请求一次 statSync。
+   *
+   * 只改正文、不动 索引.md 的编辑无需重建 —— annotateContent() 与
+   * loadAllFiles() 本来就是每次请求现读盘。
+   */
+  private reloadIfStale(): void {
+    const indexPath = path.join(this.basePath, '索引.md')
+    let signature: string
+    try {
+      const stat = fs.statSync(indexPath)
+      signature = `${stat.mtimeMs}:${stat.size}`
+    } catch {
+      // 索引暂时读不到（例如正被覆写）：沿用现有快照，不要打断请求
+      return
+    }
+
+    if (signature === this.indexSignature) return
+
+    console.log('[KnowledgeNavigator] Index changed on disk, reloading')
+    try {
+      this.rebuild()
+    } catch (err) {
+      console.warn('[KnowledgeNavigator] Reload failed, keeping previous snapshot:', err)
+    }
   }
 
   /**
    * Return the full index tree for the LLM to navigate.
    */
   getIndex(): string {
+    this.reloadIfStale()
     return this.indexContent
   }
 
@@ -48,6 +99,7 @@ export class KnowledgeNavigator {
    * Returns concatenated markdown content with file path annotations.
    */
   loadSubtree(headingPath: string): string {
+    this.reloadIfStale()
     const entry = this.nodeMap.get(headingPath)
     if (!entry) {
       console.warn(`[KnowledgeNavigator] Heading not found: "${headingPath}"`)
@@ -196,6 +248,7 @@ export class KnowledgeNavigator {
   }
 
   getStats(): { files: number; directories: number } {
+    this.reloadIfStale()
     let dirs = 0
     let files = 0
     for (const entry of this.nodeMap.values()) {
