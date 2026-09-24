@@ -333,7 +333,8 @@ export class RoomManager {
 
   selectFirstSpeaker(room: Room, playerId: string) {
     room.currentSpeakerId = playerId;
-    room.speakerOrder = generateSpeakerOrder(room, playerId);
+    const baseOrder = generateSpeakerOrder(room, playerId);
+    room.speakerOrder = [...baseOrder, ...baseOrder]; // Two description rounds before voting
     room.completedSpeakers = [];
     room.status = 'playing_description';
     this.startTurnTimer(room, playerId);

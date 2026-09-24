@@ -143,3 +143,16 @@ hybrid/.nuxt/
 hybrid/dist/
 hybrid/.env
 hybrid/data/daily-verify-count.json
+
+# Deployment (not tracked for now)
+docker/
+
+# Claude Code local settings
+.claude/
+
+# Large static assets (>10MB, not tracked for now)
+frontend/game/*.7z
+backend/go-echo-sqlite/pics/activities/1780210636494_14603.jpg
+backend/go-echo-sqlite/pics/activities/1780210650637_87323.jpg
+backend/go-echo-sqlite/pics/activities/1780211051370_76997.jpg
+backend/go-echo-sqlite/pics/activities/1780211051388_76311.jpg

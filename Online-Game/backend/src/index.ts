@@ -557,7 +557,7 @@ wss.on('connection', (ws: ExtWebSocket) => {
   });
 });
 
-// Ping interval to check disconnected sockets
+// Ping interval to check disconnected sockets — keep under nginx proxy timeout
 const interval = setInterval(() => {
   wss.clients.forEach((ws: ExtWebSocket) => {
     if (ws.isAlive === false) {
@@ -567,7 +567,7 @@ const interval = setInterval(() => {
     ws.isAlive = false;
     ws.ping();
   });
-}, 30000);
+}, 10000);
 
 wss.on('close', () => {
   clearInterval(interval);
