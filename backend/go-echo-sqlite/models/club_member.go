@@ -6,12 +6,13 @@ import "gorm.io/gorm"
 type ClubMember struct {
 	gorm.Model
 	CN        string `gorm:"primaryKey;column:cn"`
-	Password  string `gorm:"column:password"` // 新增：密码
+	Password  string `gorm:"column:password" json:"-"` // 密码哈希，绝不外泄
 	Sex       string `gorm:"column:sex"`
 	Position  string `gorm:"column:position"`
 	Year      string `gorm:"column:year"`
 	Direction string `gorm:"column:direction"`
-	Status    string `gorm:"column:status"`                 // 在役状态
-	IsMember  bool   `gorm:"column:is_member;default:true"` // 新增：是否为社团成员
+	Status    string `gorm:"column:status"`                  // 在役状态
+	IsMember  bool   `gorm:"column:is_member;default:true"`  // 是否为社团成员
+	IsAdmin   bool   `gorm:"column:is_admin;default:false" json:"-"` // 管理员：可审批注册申请
 	Remark    string `gorm:"column:remark"`
 }

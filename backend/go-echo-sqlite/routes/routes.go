@@ -11,10 +11,16 @@ func InitRoutes(e *echo.Echo) {
 
 	// 认证相关路由（无需权限）
 	api.POST("/login", controllers.Login)
-	api.POST("/register", controllers.Register)
+	api.POST("/register", controllers.Register) // 提交注册申请，审批通过后才创建成员
 	api.POST("/forgot-password", controllers.ForgotPassword)
 	api.POST("/change-password", controllers.ChangePassword)
-	api.GET("/memory-code", controllers.GetMemoryCode)
+	api.GET("/memory-code", controllers.RequireAdmin(controllers.GetMemoryCode))
+
+	// 注册审批（仅管理员）
+	admin := api.Group("/admin", controllers.RequireAdmin)
+	admin.GET("/applications", controllers.ListApplications)
+	admin.POST("/applications/:id/approve", controllers.ApproveApplication)
+	admin.POST("/applications/:id/reject", controllers.RejectApplication)
 
 	// 公开路由（访客可访问）
 	api.GET("/club_members", controllers.GetClubMembers)
