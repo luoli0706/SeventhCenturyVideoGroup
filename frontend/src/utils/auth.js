@@ -21,7 +21,13 @@ export const auth = {
     const userInfo = this.getUserInfo()
     return userInfo && userInfo.is_member
   },
-  
+
+  // 检查是否为管理员
+  isAdmin() {
+    const userInfo = this.getUserInfo()
+    return !!(userInfo && userInfo.is_admin)
+  },
+
   // 获取用户类型
   getUserType() {
     return localStorage.getItem('userType')
@@ -93,6 +99,17 @@ export const requireMemberOwner = (to, from, next) => {
     return
   }
   
+  next()
+}
+
+// 路由守卫 - 检查管理员权限
+export const requireAdmin = (to, from, next) => {
+  if (auth.getUserType() !== 'member' || !auth.isMember() || !auth.isAdmin()) {
+    alert('需要管理员权限')
+    next('/home')
+    return
+  }
+
   next()
 }
 

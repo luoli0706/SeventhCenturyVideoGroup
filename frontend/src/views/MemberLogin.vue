@@ -159,10 +159,10 @@ const handleLogin = async () => {
       password: form.password
     })
 
-    const { token, cn, is_member } = response.data
+    const { token, cn, is_member, is_admin } = response.data
 
     localStorage.setItem('token', token)
-    localStorage.setItem('userInfo', JSON.stringify({ cn, is_member }))
+    localStorage.setItem('userInfo', JSON.stringify({ cn, is_member, is_admin }))
     localStorage.setItem('userType', 'member')
 
     if (form.rememberMe) {

@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { requireMember, requireMemberOwner } from '../utils/auth'
+import { requireMember, requireMemberOwner, requireAdmin } from '../utils/auth'
 
 import Home from '../views/Home.vue'
 import Members from '../views/Members.vue'
@@ -21,7 +21,7 @@ import MemberLogin from '../views/MemberLogin.vue'
 import NewRegister from '../views/NewRegister.vue'
 import ForgotPassword from '../views/ForgotPassword.vue'
 import ChangePassword from '../views/ChangePassword.vue'
-import AdminLogin from '../views/AdminLogin.vue'
+import AdminApproval from '../views/AdminApproval.vue'
 import MemoryCodeView from '../views/MemoryCodeView.vue'
 import AIAssistant from '../views/AIAssistant.vue'
 import KBManager from '../views/KBManager.vue'
@@ -34,11 +34,20 @@ const routes = [
   { path: '/register', component: NewRegister },
   { path: '/forgot-password', component: ForgotPassword },
   { path: '/change-password', component: ChangePassword },
-  { path: '/admin-login', component: AdminLogin },
-  { path: '/memory-code-view', component: MemoryCodeView },
+  { path: '/admin-login', redirect: '/home' },
 
   // 主要页面
   { path: '/home', component: Home },
+  {
+    path: '/home/ad',
+    component: AdminApproval,
+    beforeEnter: [requireAdmin]
+  },
+  {
+    path: '/memory-code-view',
+    component: MemoryCodeView,
+    beforeEnter: [requireAdmin]
+  },
   { path: '/members', component: Members },
   { path: '/members/all-years', component: AllYears },
   { path: '/members/current', component: Current },

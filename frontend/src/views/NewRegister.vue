@@ -9,7 +9,7 @@
       <button class="nav-back" @click="goToLogin">
         <span class="nav-arrow">←</span> 返回
       </button>
-      <span class="nav-title">注册</span>
+      <span class="nav-title">申请加入</span>
       <div class="nav-spacer">
         <ThemeSwitcherIcon />
       </div>
@@ -25,8 +25,8 @@
               <path d="M18 6l4 4M22 6l-4 4" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
             </svg>
           </div>
-          <h2 class="form-title">注册社团成员账号</h2>
-          <p class="form-subtitle">请填写以下信息创建您的账号</p>
+          <h2 class="form-title">申请加入柒世纪视频组</h2>
+          <p class="form-subtitle">请填写以下信息提交入组申请，经管理员审核通过后即可登录</p>
         </div>
 
         <div class="form-body">
@@ -177,7 +177,7 @@
             <svg v-if="loading" class="btn-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none">
               <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="31.4 31.4"/>
             </svg>
-            {{ loading ? '注册中...' : '注册账号' }}
+            {{ loading ? '提交中...' : '提交申请' }}
           </button>
           <button class="btn btn-outline" @click="goToLogin">
             已有账号？返回登录
@@ -185,7 +185,7 @@
         </div>
       </div>
 
-      <!-- 注册成功 -->
+      <!-- 申请已提交 -->
       <div class="success-card" v-else>
         <div class="success-icon-wrap">
           <div class="success-icon-circle">
@@ -194,12 +194,9 @@
             </svg>
           </div>
         </div>
-        <h2 class="success-title">注册成功！</h2>
-        <p class="success-desc">{{ countdown }}秒后自动跳转到登录页面</p>
-        <div class="countdown-bar-wrap">
-          <div class="countdown-bar" :style="{ width: (countdown / 5) * 100 + '%' }"></div>
-        </div>
-        <button class="btn btn-submit" @click="goToLogin">立即跳转</button>
+        <h2 class="success-title">申请已提交</h2>
+        <p class="success-desc">您的注册申请已提交，请等待管理员审核通过后再登录</p>
+        <button class="btn btn-submit" @click="goHome">返回首页</button>
       </div>
     </main>
   </div>
@@ -215,7 +212,6 @@ const router = useRouter()
 const isDark = ref(true)
 const loading = ref(false)
 const registerSuccess = ref(false)
-const countdown = ref(5)
 const showPwd = ref(false)
 const showConfirmPwd = ref(false)
 
@@ -267,6 +263,10 @@ async function handleRegister() {
     alert('两次输入的密码不一致')
     return
   }
+  if (form.password.length < 6) {
+    alert('密码长度至少6位')
+    return
+  }
 
   loading.value = true
   try {
@@ -281,23 +281,16 @@ async function handleRegister() {
       remark: form.remark
     })
     registerSuccess.value = true
-    const timer = setInterval(() => {
-      countdown.value--
-      if (countdown.value <= 0) {
-        clearInterval(timer)
-        goToLogin()
-      }
-    }, 1000)
   } catch (error) {
-    const errorMsg = error.response?.data?.error || '注册失败，请重试'
+    const errorMsg = error.response?.data?.error || '提交失败，请重试'
     alert(errorMsg)
   } finally {
     loading.value = false
   }
 }
 
-function goToLogin() {
-  router.push('/member-login')
+function goHome() {
+  router.push('/home')
 }
 
 onMounted(() => {
@@ -610,20 +603,6 @@ onMounted(() => {
   color: rgba(255,255,255,0.2);
   margin: 0 0 24px;
 }
-.countdown-bar-wrap {
-  width: 200px;
-  height: 3px;
-  background: rgba(255,255,255,0.04);
-  border-radius: 2px;
-  overflow: hidden;
-  margin-bottom: 28px;
-}
-.countdown-bar {
-  height: 100%;
-  background: linear-gradient(to right, #0f9b8e, #e6a817);
-  border-radius: 2px;
-  transition: width 1s linear;
-}
 .success-card .btn-submit {
   max-width: 160px;
 }
@@ -723,8 +702,6 @@ onMounted(() => {
   box-shadow: 0 1px 4px rgba(0,0,0,0.02);
 }
 .theme-light .success-desc { color: rgba(0,0,0,0.15); }
-.theme-light .countdown-bar-wrap { background: rgba(0,0,0,0.04); }
-
 /* --- Responsive --- */
 @media (max-width: 600px) {
   .page-nav { padding: 12px 16px; }

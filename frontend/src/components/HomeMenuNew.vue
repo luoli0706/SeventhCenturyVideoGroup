@@ -2,10 +2,10 @@
   <div class="nav-root">
     <!-- 导航列表 -->
     <div class="nav-list">
-      <button class="nav-item" @click="handleMembersClick">
+      <router-link to="/members" class="nav-item">
         <span class="nav-text">社团成员名单</span>
         <span class="nav-arrow">→</span>
-      </button>
+      </router-link>
       <router-link to="/events" class="nav-item">
         <span class="nav-text">社团活动事件</span>
         <span class="nav-arrow">→</span>
@@ -31,6 +31,7 @@
     <div v-if="isMember" class="member-zone">
       <span class="zone-label">成员功能</span>
       <router-link to="/kb-manage" class="member-link">知识库管理</router-link>
+      <router-link v-if="isAdmin" to="/home/ad" class="member-link">注册审批</router-link>
     </div>
 
     <!-- 用户状态 -->
@@ -64,35 +65,20 @@ const props = defineProps({
 
 const router = useRouter()
 const isMember = ref(false)
+const isAdmin = ref(false)
 const userType = ref('guest')
 const userInfo = ref(null)
 
-const membersClickCount = ref(0)
-const maxClicksBeforeAdmin = 6
-
 onMounted(() => {
   updateUserStatus()
-  const savedCount = localStorage.getItem('membersClickCount')
-  if (savedCount) {
-    membersClickCount.value = parseInt(savedCount)
-  }
+  // 清理旧版「连点 6 次进入管理员」遗留的计数
+  localStorage.removeItem('membersClickCount')
 })
-
-function handleMembersClick() {
-  membersClickCount.value++
-  localStorage.setItem('membersClickCount', membersClickCount.value.toString())
-  if (membersClickCount.value >= maxClicksBeforeAdmin) {
-    membersClickCount.value = 0
-    localStorage.setItem('membersClickCount', '0')
-    router.push('/admin-login')
-  } else {
-    router.push('/members')
-  }
-}
 
 function updateUserStatus() {
   userType.value = auth.getUserType() || 'guest'
   isMember.value = auth.isMember()
+  isAdmin.value = auth.isAdmin()
   userInfo.value = auth.getUserInfo()
 }
 
