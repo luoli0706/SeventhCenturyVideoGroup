@@ -135,6 +135,8 @@ docker-compose.override.yml
 # Backup files
 *.bak
 *.backup
+*.bak-*
+backend/go-echo-sqlite/scvg.new
 
 # Nuxt SSR (hybrid/)
 hybrid/node_modules/
