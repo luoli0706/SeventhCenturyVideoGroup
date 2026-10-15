@@ -6,7 +6,7 @@
     </div>
 
     <div class="christmas-link">
-      <a href="http://7thcv.cn:1225/" target="_blank" rel="noopener noreferrer" title="访问特别页面">🎄</a>
+      <a href="https://christmaslink.7thcv.cn/" target="_blank" rel="noopener noreferrer" title="访问特别页面">🎄</a>
     </div>
 
     <main class="page-content">
